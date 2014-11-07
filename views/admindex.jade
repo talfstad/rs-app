@@ -16,7 +16,7 @@ block content
        th Redirect Rate
      tbody
       each domain in domains
-       tr(id=domain.id)
+       tr(id=domain.id, title=domain.user)
         td.user #{domain.user}
         td.url #{domain.url}
         if domain.registered == "0"

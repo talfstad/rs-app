@@ -94,7 +94,7 @@ $.extend( $.fn.dataTableExt.oPagination, {
             }
 
             //Rebinds buttons
-            bindDeleteDomainButtons();
+            //bindDeleteDomainButtons();
         }
     }
 } );
@@ -108,11 +108,63 @@ $(document).ready(function() {
             "sLengthMenu": "_MENU_ records per page"
         },
         "order": [[0, "asc"]],
-        "lengthMenu": [[-1, 10, 25, 50], ["All", 10, 25, 50]]
+        "lengthMenu": [[-1], ["All"]]
     } );
 
     //Adds paginator class to paginator
     $('#rippedDomains_paginate ul').addClass("pagination");
+
+    var currUser = "";
+    var lastUser = "";
+    $('#rippedDomains tr').each(function( index ) {
+        if(index > 0) {
+            currUser = $(this).attr('title');
+            if(currUser != lastUser) {
+                var newRow = $('<tr class="header"><th colspan="6">' + currUser +' <span>-</span></th></tr>');
+                newRow.insertBefore($(this));     
+            }
+            lastUser = currUser;
+
+        }      
+    });   
+    
+    $('tr.header').click(function(){
+        var clickedUser = $(this).text().trim();
+        clickedUser = clickedUser.substring(0, clickedUser.length - 2);
+
+        $(this).find('span').text(function(_, value){
+            if(value == '-') {
+                $('#rippedDomains tr').each(function(i){
+                    if($(this).attr('title') == clickedUser) {
+                        $(this).hide()
+                    }
+                });
+            }
+            else {
+                $('#rippedDomains tr').each(function(i){
+                    if($(this).attr('title') == clickedUser) {
+                        $(this).show()
+                    }
+                });
+            }
+            return value=='-'?'+':'-'}
+        ); 
+        
+    });
+
+    $('tr.header').find('span').text(function(_, value){
+        return value=='-'?'+':'-'
+    });
+
+
+    $('#rippedDomains tr').each(function( idx ) {
+        if(idx > 0) {
+            if($(this).attr('class') != 'header') {
+                $(this).hide();
+            }
+        }
+    });
+    
   
 } );
 
