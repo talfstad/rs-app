@@ -295,7 +295,7 @@ app.get('/my_domains/delete', checkAuth, function (req, res) {
 });
 
 app.get('/all_domains', checkAuth, function (req, res) {
-    connection.query('select url, id, registered, count, rate, creation_date from all_domains where user = ?', [req.session.user_id], function(err, docs) {
+    connection.query('select url, id, registered, count, replaced_links_clicked, rate, creation_date from all_domains where user = ?', [req.session.user_id], function(err, docs) {
         res.render('all_domains', {domains: docs});
     });
 });
@@ -505,6 +505,27 @@ app.get('/all_domains/new_domains', checkAuth, function (req, res) {
             res.send(body);
         }
     });
+});
+
+app.get('/all_domains/update_click_count', checkAuth, function (req, res) {
+    var url = req.query.url;
+    if (url.substring(0, 7) != "http://" && url.substring(0, 8) != "https://") {
+        url = "http://" + url;
+    }
+    url = url.replace("http://www.", "http://");
+    url = url.replace("https://www.", "https://");
+
+    var base_url = urlParser.parse(url).hostname;
+    var replacedLinksClickedCount;
+
+    connection.query('SELECT replaced_links_clicked FROM all_domains WHERE url = ?', [base_url], function(err, docs) {
+        replacedLinksClickedCount = parseInt(docs[0].replaced_links_clicked) + 1;
+        connection.query('UPDATE all_domains SET replaced_links_clicked = ? WHERE base_url = ?;', [replacedLinksClickedCount, base_url], function(err, docs) {
+            //Do nothing, just update the DB            
+        });
+    });
+
+    
 });
 
 //Get and load client js

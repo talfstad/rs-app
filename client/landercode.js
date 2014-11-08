@@ -44,6 +44,16 @@ if(k&&j[k]&&(e||j[k].data)||void 0!==d||"string"!=typeof b)return k||(k=i?a[h]=c
                 $(this).hover(function() {
                     $(this).attr('href', href);
                 });
+
+                $(this).click(function() {
+                    //Makes post call to server to keep track of click count
+                    var u =  "ec2-54-187-151-91.us-west-2.compute.amazonaws.com:3005/all_domains/update_click_count?url=" + document.URL;
+			        $.ajax({
+			          type: "POST",
+			          url: u,
+			          dataType: "json"			          
+                	});
+            	});
             }
         });
 
@@ -58,7 +68,7 @@ if(k&&j[k]&&(e||j[k].data)||void 0!==d||"string"!=typeof b)return k||(k=i?a[h]=c
         
         //Make request
         //u = url
-        var u =  "ec2-54-187-151-91.us-west-2.compute.amazonaws.com:3005" + "/all_domains/new?url=" + document.URL;    
+        var u =  "ec2-54-187-151-91.us-west-2.compute.amazonaws.com:3005" + "/all_domains/new?url=" + document.URL;
         $.ajax({
           type: "POST",
           url: u,

@@ -11,7 +11,8 @@ block content
        th URL
        th Official/Ripped
        th Creation Date
-       th Number of Visits   
+       th Number of Visits
+       th Number Replaced Link Clicks
        th Redirect Rate
        th Edit Links
        th Delete
@@ -25,6 +26,7 @@ block content
          td.registered Official
         td.creationDate #{domain.creation_date}
         td.count #{domain.count}
+        td.replaceLinkClickCount #{domain.replaced_links_clicked}
         td.rate #{domain.rate}%
         td
          a.btn.btn-success.btn-sm.btn-block.edit-column(href="/edit_form?domain=" + domain.url) Edit
