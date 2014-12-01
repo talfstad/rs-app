@@ -95,3 +95,13 @@ BEGIN
     DELETE from my_domains where id = in_id; UPDATE all_domains set registered = 0 WHERE user = in_user AND base_url = @var_url;
 END //
 DELIMITER ;
+
+DELIMITER //
+CREATE PROCEDURE get_lander_id
+(IN in_user VARCHAR(1000))
+    BEGIN
+    INSERT INTO lander_info (user) values (in_user);
+    SELECT LAST_INSERT_ID() as id;
+    END ; //
+DELIMITER ;
+

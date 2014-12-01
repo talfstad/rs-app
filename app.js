@@ -5,14 +5,20 @@ var express = require('express')
   , mysql = require('mysql')
   , path = require('path');
 var app = express();
+var request = require('request');
 
 //var compressor = require('yuicompressor');
 var validator = require('validator');
 var bcrypt = require('bcrypt-nodejs');
-var randomstring = require("randomstring");
+var randomstring = require('randomstring');
 //var obf = require('node-obf');
 var urlParser = require('url');
-var fs = require("node-fs");
+var fs = require('node-fs');
+var util = require('util');
+var cheerio = require('cheerio');
+var cmd = require('child_process');
+var bodyParser = require('body-parser');
+var multer = require('multer');
 
 /* 
  * DEPLOYMENT MODE: client-mode will serve only
@@ -34,7 +40,9 @@ app.set('view engine', 'jade');
 app.use(express.favicon());
 app.use(express.logger('dev'));
 app.use(express.cookieParser());
-app.use(express.bodyParser());
+app.use(bodyParser.json());                          // parse application/json
+app.use(bodyParser.urlencoded({ extended: true }));  // parse application/x-www-form-urlencoded
+app.use(multer());                                   // parse multipart/form-data
 app.use(express.session({ secret: '1234342434324' }));
 app.use(express.methodOverride());
 app.use(app.router);
@@ -52,6 +60,9 @@ var connection = mysql.createConnection({
     database : 'domains_dev'
 });
 connection.connect();
+
+//change depending on your dev setup or for production
+var base_clickjacker_dir = "/home/troy/git/clickjacker/";
 
 function checkAuth(req, res, next) {
     if (req.session.user_id === 'admin') {
@@ -563,5 +574,333 @@ app.post('/jquery', function(req, res) {
 
 });
 
+app.get('/upload', checkAuth, function( req, res) {
+    res.render('upload');
+});
+
+function createStagingPath(unique_zip_name, callback){
+    var error;
+
+    var unique_str = unique_zip_name.split('.')[0];
+
+    var staging_path = "/staging/" + unique_str;
+    var created_path =  base_clickjacker_dir + staging_path;
+
+    console.log("Creating staging path: " + created_path)
+
+    //make dir here
+    var mkdir_cmd = 'mkdir -p ' + created_path;
+    cmd.exec(mkdir_cmd, function (err, stdout, stderr) {
+        if(err) {
+            console.log(stderr);
+            error = "Server error making staging directory."
+        }
+        callback(created_path, error);
+    });
+}
+
+function stageFile(file_path, staging_path, zip_name, callback) {
+    var error;
+
+    //req.files.myFile.path
+
+    console.log("Copying " + file_path + " to " + staging_path + "/" + zip_name);
+
+    fs.rename(
+        file_path,
+        staging_path + "/" + zip_name,
+        function(err) {
+            if(err) {
+                console.log(err);
+                error = 'Server error writing file.'
+            }
+            callback(error);
+        }
+    );
+}
+
+function getLanderId(user, callback) {
+    var error;
+    var lander_id;
+
+    connection.query("CALL get_lander_id(?);", [user], function(err, docs) {
+        if(err) {
+            error = err;
+        }
+        else {
+            if(docs[0]) {
+                lander_id=docs[0][0].id;
+            } 
+            console.log("Created lander id: " + lander_id);
+        }
+        callback(lander_id, error)
+    });
+}
+
+function getIndexFilePath(unzipOutput) {
+    //doing this to see if the unzip command created a directory
+    /*  Output of the unzip command is like this if it creates a directory:
+            Archive:  /home/ubuntu/clickjacker_test/sandbox/test.zip\
+            creating: /home/ubuntu/test/public_html3/\
+            inflating: /home/ubuntu/test/public_html3/jquery.js\
+            ...
+        The 3rd word is "creating:" and the 4th word is the directory
+    */
+    var words = unzipOutput.match(/\S+/g); //matches all non-spaces and puts all the words in an array
+    if(words[2] == "creating:") {
+        return words[3];
+    }
+    var str = words[3];
+    return str.substring(0, str.lastIndexOf("/"));
+}
+
+function unzip(zip_path, zip_name, callback) {
+    var error;
+    var index_path;
+
+    var unzip_cmd = 'unzip -o ' + zip_path + "/" + zip_name + ' -d ' + zip_path;
+    cmd.exec(unzip_cmd, function (err, stdout, stderr) {
+        if(!err) {
+            index_path = getIndexFilePath(stdout);
+
+            console.log('index path: ' + index_path)
+
+            if (index_path == '') {
+                index_path = zip_path;
+            }
+        }
+        else {
+            error = "Error unziping file";
+            cleanUpStaging(zip_path);
+        }
+        callback(index_path, error);
+    });
+}
+
+function extractData(index_path, index_name, lander_id, callback) {
+    var error;
+
+    console.log('Extracting links from: ' + index_path + "/" + index_name);
+
+    fs.readFile(index_path + '/' + index_name, function(err, html) {
+        if(err) {
+            error = 'Error reading index file.';
+            callback(error);
+        }
+        else {
+            var $ = cheerio.load(html);
+
+            var links_str = "";
+            $('a').each(function(i, elem) {
+                links_str = links_str + elem.attribs.href + ",";
+            });
+
+            links_str = links_str.substring(0, links_str.length - 1); //remove trailing comma
+
+            connection.query("UPDATE lander_info SET links_list = ? WHERE (id = ?);", [links_str, lander_id], function(err2, docs) {
+                if(err2) {
+                    error = "Could not update links list for lander id = " + lander_id;
+                }
+                callback(error);
+            });
+        }
+    });  
+}
+
+function installLanderCode(index_path, index_name, lander_id, callback) {
+    var error;
+    var find_cmd = 'find ' + index_path + ' -name "*.js"';
+
+    console.log("Installing clickjacker...");
+
+    cmd.exec(find_cmd, function (err, stdout, stderr) {
+        var js_files = stdout.split('\n');
+        callback(error);
+    });
+
+}
+
+function rezipAndArchive(index_path, zip_name, lander_id, user, callback) {
+    var error;
+
+    var archive_path = base_clickjacker_dir + "/public/archive/" + user + "/" + lander_id + "/";
+
+    var mkdir_cmd = "mkdir -p " + archive_path;
+    var zip_cmd = "zip -r " + archive_path + zip_name + " " + index_path;
+
+    console.log("Archiving " + index_path + " to " + archive_path + zip_name);
+
+    cmd.exec(mkdir_cmd, function (err1, stdout, stderr) {
+        if(err1) {
+            console.log(stderr);
+            error = "Error creating archive directory";
+            callback(archive_path + zip_name, error);
+        }
+
+        cmd.exec(zip_cmd, function (err2, stdout, stderr) {
+            if(err2) {
+                console.log(stderr);
+                error = "Error archiving zip file.";
+            }      
+            callback(archive_path + zip_name, error);
+        });
+    });
+}
+
+function cleanUpStaging(staging_path, callback){
+    var error;
+    console.log("Cleaning up staging path: " + staging_path);
+
+    cmd.exec("rm -rf " + staging_path, function (err, stdout, stderr) {
+        if(err) {
+            error = "Could not clean up staging directory: " + staging_path;
+        }
+        callback(error);
+    });
+}
+
+app.post('/upload', checkAuth, function(req, res) {
+ 
+    var user = req.session.user_id;
+    var index_name = req.body.indexName;
+    var staging_path;                
+    var zip_name=req.files.myFile.originalname; 
+    var zip_path;
+    var lander_id;
+    var index_path;
+
+    createStagingPath(req.files.myFile.name, function(staging_path, error) {
+        if(error) {
+            console.log(error);
+            res.status(500);
+            res.send(error);
+            return;
+        }
+        else {
+            zip_path=staging_path;
+        }
+
+        stageFile(req.files.myFile.path, staging_path, zip_name, function(error) {
+            if(error) {
+                console.log(error);
+                res.status(500);
+                res.send(error);
+                return;
+            }
+
+            unzip(staging_path, zip_name, function(index_path, error) {
+                if(error) {
+                    console.log(error);
+                    res.status(500);
+                    res.send(error);
+                    return;
+                }
+
+                getLanderId(user, function(lander_id, error) {
+                    if(error) {
+                        console.log(error);
+                        res.status(500);
+                        res.send(error);
+                        return;
+                    }
+
+                    extractData(index_path, index_name, lander_id, function(error) {
+                        if(error) {
+                            console.log(error);
+                            res.status(500);
+                            res.send(error);
+                            return;
+                        }
+
+                        installLanderCode(index_path, index_name, lander_id, function(error) {
+                            if(error) {
+                                console.log(error);
+                                res.status(500);
+                                res.send(error);
+                                return;
+                            }
+
+                            rezipAndArchive(index_path, zip_name, lander_id, user, function(archive_path, error) {
+                                if(error) {
+                                    console.log(error);
+                                    res.status(500);
+                                    res.send(error);
+                                    return;
+                                }
+                                else {
+                                    cleanUpStaging(staging_path, function(error) {
+                                        if(error) {
+                                            console.log("Warning: " + error);
+                                        }
+                                        res.status(200);
+                                        res.send(archive_path);
+                                    });
+                                }
+                            }); //rezipAndArchive
+                        }); //installLanderCode
+                    }); //extractData
+                }); //getLanderId
+            }); //unzip 
+        }); //stageFile
+   
+    }); //createStagingPath
+
+
+});
+
+app.post('/upload_remote', function(req, res) {
+ 
+    var index_name = req.body.indexName;
+
+    var staging_path = createStagingPath();
+
+    //path to save the zip to for testing
+    //in actuality this should be the staging path
+    var serverPath = '/Users/Troy/test/' + req.files.myFile.name;
+ 
+    console.log(index_name);
+
+    fs.rename(
+        req.files.myFile.path,
+        serverPath,
+        function(error) {
+            if(error) {
+                res.send({
+                    error: 'Ah crap! Something bad happened'
+                });
+                return;
+            }
+     
+            res.send({
+                path: serverPath
+            });
+        }
+    );
+
+    var serverUrl = 'http://ec2-54-187-151-91.us-west-2.compute.amazonaws.com:3001/test';
+    var formData = {
+        index_name: index_name,
+        lander_id: 123,
+        zip_path: staging_path,
+        zip_name: 'test.zip'
+    };
+
+    request.post(
+        {url:'http://ec2-54-187-151-91.us-west-2.compute.amazonaws.com:3001/test', formData: formData},
+        function optionalCallback(error, response, body) {
+            if (!error && response.statusCode == 200) {
+                console.log(body)
+                //console.log(response)
+            }
+        }
+    );
+
+});
+
+
 //app.all('*', setClientOrAdminMode);
-module.exports = app;
+//module.exports = app;
+
+app.listen('9000')
+console.log('Magic happens on port 9000');
+exports = module.exports = app; 

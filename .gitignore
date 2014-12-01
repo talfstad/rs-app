@@ -7,3 +7,5 @@ public/lib
 .tmp
 logs
 *.log
+staging
+public/archive

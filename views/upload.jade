@@ -1,0 +1,11 @@
+extends layout
+block content
+    script(src='/scripts/base/jquery.form.js')
+    script(src='/scripts/custom/upload.js')
+    form#uploadForm(method="post", action="/upload", enctype="multipart/form-data")
+        label(for="payload") Select a file to upload:
+        input#file_field(type="file", name="myFile", accept="application/zip", style="color : white")
+        input#index_name_field(type="text", name="indexName")
+        br 
+        button#upload(type="submit") Upload
+    span#status
