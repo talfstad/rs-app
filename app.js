@@ -17,8 +17,16 @@ var fs = require('node-fs');
 var util = require('util');
 var cheerio = require('cheerio');
 var cmd = require('child_process');
+
+//new middlewares
+var favicon = require('serve-favicon');
+var logger = require('morgan');
+var methodOverride = require('method-override');
+var session = require('express-session');
 var bodyParser = require('body-parser');
 var multer = require('multer');
+var errorHandler = require('errorhandler');
+var cookieParser = require('cookie-parser')
 
 /* 
  * DEPLOYMENT MODE: client-mode will serve only
@@ -37,21 +45,21 @@ Date.prototype.toMysqlFormat = function () {
 app.set('port', process.env.PORT || 9000);
 app.set('views', __dirname + '/views');
 app.set('view engine', 'jade');
-app.use(express.favicon());
-app.use(express.logger('dev'));
-app.use(express.cookieParser());
+//app.use(favicon(__dirname + '/public/favicon.ico'));
+app.use(logger('dev'));
+app.use(cookieParser());
 app.use(bodyParser.json());                          // parse application/json
 app.use(bodyParser.urlencoded({ extended: true }));  // parse application/x-www-form-urlencoded
 app.use(multer());                                   // parse multipart/form-data
-app.use(express.session({ secret: '1234342434324' }));
-app.use(express.methodOverride());
-app.use(app.router);
+app.use(session({ secret: '1234342434324' }));
+app.use(methodOverride());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.configure('development', function() {
-    app.use(express.errorHandler());
+//deprecated, see: https://github.com/strongloop/express/wiki/Migrating-from-3.x-to-4.x
+/*app.configure('development', function() {
+    app.use(errorHandler());
     app.locals.pretty = true;
-});
+});*/
 
 var connection = mysql.createConnection({
     host : '54.187.151.91',
