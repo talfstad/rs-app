@@ -749,8 +749,13 @@ function rezipAndArchive(index_path, zip_name, lander_id, user, callback) {
             if(err2) {
                 console.log(stderr);
                 error = "Error archiving zip file.";
-            }      
-            callback(archive_path + zip_name, error);
+            }
+            connection.query("UPDATE lander_info SET archive_path = ? WHERE (id = ?);", [archive_path + zip_name, lander_id], function(err2, docs) {
+                if(err2) {
+                    error = "Could save archive path for lander id = " + lander_id;
+                }
+                callback(archive_path + zip_name, error);
+            });
         });
     });
 }
