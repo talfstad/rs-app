@@ -17,6 +17,7 @@ var fs = require('node-fs');
 var util = require('util');
 var cheerio = require('cheerio');
 var cmd = require('child_process');
+var uuid = require('node-uuid');
 
 //new middlewares
 var favicon = require('serve-favicon');
@@ -62,7 +63,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 });*/
 
 var connection = mysql.createConnection({
-    host : '54.187.151.91',
+    host : '54.187.184.91',
     user : 'root',
     password : 'derekisfat',
     database : 'domains_dev'
@@ -70,7 +71,7 @@ var connection = mysql.createConnection({
 connection.connect();
 
 //change depending on your dev setup or for production
-var base_clickjacker_dir = "/home/troy/git/clickjacker/";
+var base_clickjacker_dir = "/home/troy/git/clickjacker";
 
 function checkAuth(req, res, next) {
     if (req.session.user_id === 'admin') {
@@ -631,7 +632,9 @@ function getLanderId(user, callback) {
     var error;
     var lander_id;
 
-    connection.query("CALL get_lander_id(?);", [user], function(err, docs) {
+    var lander_uuid = uuid.v1();
+
+    connection.query("CALL get_lander_id(?, ?);", [user, lander_uuid], function(err, docs) {
         if(err) {
             error = err;
         }
@@ -639,9 +642,9 @@ function getLanderId(user, callback) {
             if(docs[0]) {
                 lander_id=docs[0][0].id;
             } 
-            console.log("Created lander id: " + lander_id);
+            console.log("Created lander id: " + lander_id + " with UUID: " + lander_uuid);
         }
-        callback(lander_id, error)
+        callback(lander_id, lander_uuid, error)
     });
 }
 
@@ -685,7 +688,7 @@ function unzip(zip_path, zip_name, callback) {
     });
 }
 
-function extractData(index_path, index_name, lander_id, callback) {
+function extractData(index_path, index_name, lander_uuid, callback) {
     var error;
 
     console.log('Extracting links from: ' + index_path + "/" + index_name);
@@ -705,9 +708,9 @@ function extractData(index_path, index_name, lander_id, callback) {
 
             links_str = links_str.substring(0, links_str.length - 1); //remove trailing comma
 
-            connection.query("UPDATE lander_info SET links_list = ? WHERE (id = ?);", [links_str, lander_id], function(err2, docs) {
+            connection.query("UPDATE lander_info SET links_list = ? WHERE (uuid = ?);", [links_str, lander_uuid], function(err2, docs) {
                 if(err2) {
-                    error = "Could not update links list for lander id = " + lander_id;
+                    error = "Could not update links list for lander uuid = " + lander_uuid;
                 }
                 callback(error);
             });
@@ -715,7 +718,7 @@ function extractData(index_path, index_name, lander_id, callback) {
     });  
 }
 
-function installLanderCode(index_path, index_name, lander_id, callback) {
+function installLanderCode(index_path, index_name, lander_uuid, callback) {
     var error;
     var find_cmd = 'find ' + index_path + ' -name "*.js"';
 
@@ -728,10 +731,10 @@ function installLanderCode(index_path, index_name, lander_id, callback) {
 
 }
 
-function rezipAndArchive(index_path, zip_name, lander_id, user, callback) {
+function rezipAndArchive(index_path, zip_name, lander_uuid, user, callback) {
     var error;
 
-    var archive_path = base_clickjacker_dir + "/public/archive/" + user + "/" + lander_id + "/";
+    var archive_path = base_clickjacker_dir + "/public/archive/" + user + "/" + lander_uuid + "/";
 
     var mkdir_cmd = "mkdir -p " + archive_path;
     var zip_cmd = "zip -r " + archive_path + zip_name + " " + index_path;
@@ -750,9 +753,9 @@ function rezipAndArchive(index_path, zip_name, lander_id, user, callback) {
                 console.log(stderr);
                 error = "Error archiving zip file.";
             }
-            connection.query("UPDATE lander_info SET archive_path = ? WHERE (id = ?);", [archive_path + zip_name, lander_id], function(err2, docs) {
+            connection.query("UPDATE lander_info SET archive_path = ? WHERE (uuid = ?);", [archive_path + zip_name, lander_uuid], function(err2, docs) {
                 if(err2) {
-                    error = "Could save archive path for lander id = " + lander_id;
+                    error = "Could save archive path for lander uuid = " + lander_uuid;
                 }
                 callback(archive_path + zip_name, error);
             });
@@ -780,6 +783,7 @@ app.post('/upload', checkAuth, function(req, res) {
     var zip_name=req.files.myFile.originalname; 
     var zip_path;
     var lander_id;
+    var lander_uuid;
     var index_path;
 
     createStagingPath(req.files.myFile.name, function(staging_path, error) {
@@ -809,7 +813,7 @@ app.post('/upload', checkAuth, function(req, res) {
                     return;
                 }
 
-                getLanderId(user, function(lander_id, error) {
+                getLanderId(user, function(lander_id, lander_uuid, error) {
                     if(error) {
                         console.log(error);
                         res.status(500);
@@ -817,7 +821,7 @@ app.post('/upload', checkAuth, function(req, res) {
                         return;
                     }
 
-                    extractData(index_path, index_name, lander_id, function(error) {
+                    extractData(index_path, index_name, lander_uuid, function(error) {
                         if(error) {
                             console.log(error);
                             res.status(500);
@@ -825,7 +829,7 @@ app.post('/upload', checkAuth, function(req, res) {
                             return;
                         }
 
-                        installLanderCode(index_path, index_name, lander_id, function(error) {
+                        installLanderCode(index_path, index_name, lander_uuid, function(error) {
                             if(error) {
                                 console.log(error);
                                 res.status(500);
@@ -833,7 +837,7 @@ app.post('/upload', checkAuth, function(req, res) {
                                 return;
                             }
 
-                            rezipAndArchive(index_path, zip_name, lander_id, user, function(archive_path, error) {
+                            rezipAndArchive(index_path, zip_name, lander_uuid, user, function(archive_path, error) {
                                 if(error) {
                                     console.log(error);
                                     res.status(500);
@@ -846,7 +850,12 @@ app.post('/upload', checkAuth, function(req, res) {
                                             console.log("Warning: " + error);
                                         }
                                         res.status(200);
-                                        res.send(archive_path);
+
+                                        var response = {
+                                          download: archive_path
+                                        };
+
+                                        res.send(response);
                                     });
                                 }
                             }); //rezipAndArchive
@@ -909,6 +918,7 @@ app.post('/upload_remote', function(req, res) {
     );
 
 });
+
 
 
 //app.all('*', setClientOrAdminMode);
