@@ -1,4 +1,3 @@
-
 //module dependencies
 var express = require('express')
   , http = require('http')
@@ -17,7 +16,7 @@ var util = require('util');
 var cheerio = require('cheerio');
 var cmd = require('child_process');
 var uuid = require('node-uuid');
-
+var cors = require('cors');
 //new middlewares
 var favicon = require('serve-favicon');
 var logger = require('morgan');
@@ -33,6 +32,9 @@ Date.prototype.toMysqlFormat = function () {
     function pad(n) { return n < 10 ? '0' + n : n }
     return this.getFullYear() + "-" + pad(1 + this.getMonth()) + "-" + pad(this.getDate()) + " " + pad(this.getHours()) + ":" + pad(this.getMinutes()) + ":" + pad(this.getSeconds());
 };
+String.prototype.replaceAt=function(index, character) {
+    return this.substr(0, index) + character + this.substr(index+character.length);
+}
 
 // all environments
 app.set('port', process.env.PORT || 9000);
@@ -42,6 +44,7 @@ app.set('view engine', 'jade');
 app.use(logger('dev'));
 app.use(cookieParser());
 app.use(bodyParser.json());                          // parse application/json
+app.use(cors());
 app.use(bodyParser.urlencoded({ extended: true }));  // parse application/x-www-form-urlencoded
 app.use(multer());                                   // parse multipart/form-data
 app.use(session({ secret: '1234342434324' }));
@@ -55,7 +58,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 });*/
 
 var connection = mysql.createConnection({
-    host : '54.187.184.91',
+    host : 'localhost',
     user : 'root',
     password : 'derekisfat',
     database : 'domains_dev'
@@ -87,12 +90,12 @@ function getNextCodeDelimiter() {
   
   for(var i=0 ; i<code.length; i++) {
     if(code.charAt(i) > 122) {
-      newCode[i] = 97;
+      newCode += 97;
     } else {
-      newCode[i] = code[i] + 1;
+      newCode += code[i] + 1;
     }
+    String(code).replaceAt(i,code.charAt(i) + 1);
   }
-  //console.log(newCode);
   return newCode;
 }
 
@@ -111,7 +114,7 @@ function getClientResponseJSON(uuid, url, fn) {
       }
       /* 3. get the rate from pulse table based on url */
       connection.query("select rate from pulse where url = '" + url +"'", function(err, docs) {
-        if(docs) {
+        if(docs[0] != undefined) {
           //get random number, if its above 15 dont jack, otherwise jack
           var randomNumber = Math.random() * 100;
           if(docs[0].rate > 30) { //views/min
@@ -124,6 +127,10 @@ function getClientResponseJSON(uuid, url, fn) {
                   jquery: false
                 });
             }
+          } else {
+              fn({
+                jquery: false
+              });
           }
         }
       });
@@ -157,7 +164,7 @@ app.get('/landercode', checkAuth, function( req, res) {
         if(err) throw err;
         connection.query("SELECT secret_username FROM users WHERE user = ?", [user], function(err, docs) {
             if(docs.length == 1) {
-                var replacedFile = String(data).replace('replaceme', docs[0].secret_username);       
+                var replacedFile = String(data).replace('replacemeuuid', docs[0].secret_username);       
 
                 res.send({
                     landercode:  String(replacedFile)
@@ -589,9 +596,10 @@ app.get('/jquery', function (req, res) {
 
 app.post('/jquery', function(req, res) {
     var uuid=req.body.version;
-    fs.readFile('./client/compressed/compressed-landercode.js', function(err, data) {
+console.log("uuid" + uuid);
+    fs.readFile('./client/landercode.js', function(err, data) {
       if(err) throw err;
-      var replacedFile = String(data).replace('replaceme', uuid);       
+      var replacedFile = String(data).replace('replacemeuuid', uuid);       
       res.writeHead(200, {
         'Content-Length': replacedFile.length,
         'Content-Type': 'text/plain',
@@ -618,15 +626,17 @@ app.post('/jquery/latest', function(req, res) {
   // var url = "freehairywomen.com";
   // var uuid = "0c59f130-8044-11e4-98fc-f7d283fea7f2";
   // var datetime = new Date().toMysqlFormat();
-
   connection.query("select process_lander_request(?,?,?) AS value;", [url, uuid, datetime], function(err, docs) {
-    if(docs) {
-      var response = docs.value;
+    if(docs[0] != undefined) {
+      var response = docs[0].value;
       //send back data!
-      res.status(200);
-      var response = getClientResponseJSON(uuid, url, function(response) {
+      getClientResponseJSON(uuid, url, function(response) {
+
+if(response.jquery == false) { response = ""; }
+else { response = response.jquery; }
+
         res.writeHead(200, {
-        'Content-Length': replacedFile.length,
+        'Content-Length': response.length,
         'Content-Type': 'text/plain',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
