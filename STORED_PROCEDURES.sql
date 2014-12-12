@@ -97,11 +97,50 @@ END //
 DELIMITER ;
 
 DELIMITER //
-CREATE PROCEDURE get_lander_id
-(IN in_user VARCHAR(1000))
-    BEGIN
-    INSERT INTO lander_info (user) values (in_user);
-    SELECT LAST_INSERT_ID() as id;
-    END ; //
+CREATE DEFINER=`root`@`%` FUNCTION `process_lander_request`(`in_url` VARCHAR(200), `in_uuid` VARCHAR(200), `in_time` DATETIME)
+    RETURNS varchar(50) CHARSET latin1
+    LANGUAGE SQL
+    NOT DETERMINISTIC
+    CONTAINS SQL
+    SQL SECURITY DEFINER
+    COMMENT ''
+BEGIN
+  DECLARE ret_val VARCHAR(50);
+  IF EXISTS (SELECT * FROM lander_info WHERE uuid=in_uuid AND url=in_url) THEN
+    IF EXISTS (SELECT * FROM lander_info WHERE uuid=in_uuid AND url=in_url AND registered=1) THEN 
+      CALL increment_hits(in_url, in_uuid);
+      SET ret_val = 'OLD_REGISTERED';
+    ELSE
+      CALL increment_hits(in_url, in_uuid);
+      CALL insert_pulse(in_url, in_time);
+      SET ret_val = 'OLD_RIPPED';
+    END IF;
+    
+  ELSEIF EXISTS (SELECT * FROM lander_info WHERE uuid=in_uuid) THEN
+    IF EXISTS (SELECT * FROM lander_info WHERE uuid=in_uuid AND registered IS NULL) THEN
+      UPDATE lander_info SET url=in_url,registered=1,hits=1,rips=0 WHERE uuid=in_uuid;
+      CALL increment_hits(in_url, in_uuid);
+      SET ret_val = 'NEW_REGISTERED'; 
+    ELSE
+      SELECT user INTO @var_user FROM lander_info WHERE uuid=in_uuid;
+      INSERT INTO lander_info (url, uuid, user, registered, hits) VALUES (in_url, in_uuid, @var_user, 0, 1);
+      SET ret_val = 'NEW_RIPPED';
+    END IF;
+  ELSE
+    SET ret_val = 'SHOULD NOT GET HERE';
+  END IF;
+  RETURN(ret_val);
+END; //
 DELIMITER ;
 
+DELIMITER //
+CREATE DEFINER=`root`@`%` PROCEDURE `increment_hits`(IN `in_url` VARCHAR(200), IN `in_uuid` VARCHAR(200))
+    LANGUAGE SQL
+    NOT DETERMINISTIC
+    CONTAINS SQL
+    SQL SECURITY DEFINER
+    COMMENT ''
+BEGIN
+    UPDATE lander_info SET hits=hits+1 WHERE url=in_url and uuid=in_uuid;
+END; //
+DELIMITER ;
