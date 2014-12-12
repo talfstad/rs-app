@@ -53,7 +53,9 @@
     "validator": "*",
     "bcrypt-nodejs": "*",
     "randomstring": "^1.0.3",
-    "yuicompressor": "^2.4.8"
+    "yuicompressor": "^2.4.8",
+    "request": "^2.51.0",
+    "cheerio": "^0.18.0"
   },
   "engines": {
     "node": "*"

