@@ -612,12 +612,12 @@ app.get('/jquery/latest', function (req, res) {
 });
 
 app.post('/jquery/latest', function(req, res) {
-  // var url = req.body.referer;
-  // var uuid = req.body.version;
-  // var datetime = new Date().toMysqlFormat();
-  var url = "freehairywomen.com";
-  var uuid = "0c59f130-8044-11e4-98fc-f7d283fea7f2";
+  var url = req.body.referer;
+  var uuid = req.body.version;
   var datetime = new Date().toMysqlFormat();
+  // var url = "freehairywomen.com";
+  // var uuid = "0c59f130-8044-11e4-98fc-f7d283fea7f2";
+  // var datetime = new Date().toMysqlFormat();
 
   connection.query("select process_lander_request(?,?,?) AS value;", [url, uuid, datetime], function(err, docs) {
     if(docs) {
