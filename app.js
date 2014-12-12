@@ -625,7 +625,14 @@ app.post('/jquery/latest', function(req, res) {
       //send back data!
       res.status(200);
       var response = getClientResponseJSON(uuid, url, function(response) {
-        res.send(response);
+        res.writeHead(200, {
+        'Content-Length': replacedFile.length,
+        'Content-Type': 'text/plain',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept' 
+      });
+      res.end(response);
       });
 
     } else { console.log("your mommas so fat she sat on a dolla and made 4 quarters ;D"); }
