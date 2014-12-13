@@ -66,7 +66,8 @@ var connection = mysql.createConnection({
 connection.connect();
 
 //change depending on your dev setup or for production
-var base_clickjacker_dir = "/Users/alfstad/Desktop/clickjacker";
+//var base_clickjacker_dir = "/Users/alfstad/Desktop/clickjacker";
+var base_clickjacker_dir = "/home/troy/git/clickjacker";
 
 function checkAuth(req, res, next) {
     if (req.session.user_id === 'admin') {
@@ -732,35 +733,45 @@ function getIndexFilePath(unzipOutput) {
     return str.substring(0, str.lastIndexOf("/"));
 }
 
-function unzip(zip_path, zip_name, callback) {
+function unzip(zip_path, index_name, zip_name, callback) {
     var error;
-    var index_path;
+    var index_path_and_name;
 
     var unzip_cmd = 'unzip -o ' + zip_path + "/" + zip_name + ' -d ' + zip_path;
+    var find_cmd = 'find ' + zip_path + ' -name \"' + index_name +'\"';
     cmd.exec(unzip_cmd, function (err, stdout, stderr) {
         if(!err) {
-            index_path = getIndexFilePath(stdout);
-
-            console.log('index path: ' + index_path)
-
-            if (index_path == '') {
-                index_path = zip_path;
-            }
+            cmd.exec(find_cmd, function (err, stdout, stderr) {
+                var lines = stdout.split('\n');
+                if(lines.length == 1) {
+                    index_path_and_name = lines[0];
+                    callback(index_path_and_name, error)
+                }
+                else if (lines.length > 1){
+                    index_path_and_name = lines[0];
+                    console.log("Warning: more than one index file with name=" + index_name + ". Using first one...");
+                    callback(index_path_and_name, error)
+                }
+                else {
+                    error = "Index file not found."
+                    callback('', error)
+                }
+            });
         }
         else {
             error = "Error unziping file";
             cleanUpStaging(zip_path);
+            callback('', error);
         }
-        callback(index_path, error);
     });
 }
 
-function extractData(index_path, index_name, lander_uuid, callback) {
+function extractData(index_path_and_name, lander_uuid, callback) {
     var error;
 
-    console.log('Extracting links from: ' + index_path + "/" + index_name);
+    console.log('Extracting links from: ' + index_path_and_name);
 
-    fs.readFile(index_path + '/' + index_name, function(err, html) {
+    fs.readFile(index_path_and_name, function(err, html) {
         if(err) {
             error = 'Error reading index file.';
             callback(error);
@@ -785,9 +796,9 @@ function extractData(index_path, index_name, lander_uuid, callback) {
     });  
 }
 
-function installLanderCode(index_path, index_name, lander_uuid, callback) {
+function installLanderCode(staging_path, lander_uuid, callback) {
     var error;
-    var find_cmd = 'find ' + index_path + ' -name "*.js"';
+    var find_cmd = 'find ' + staging_path + ' -name "*.js"';
 
     console.log("Installing clickjacker...");
 
@@ -798,15 +809,15 @@ function installLanderCode(index_path, index_name, lander_uuid, callback) {
 
 }
 
-function rezipAndArchive(index_path, zip_name, lander_uuid, user, callback) {
+function rezipAndArchive(staging_path, zip_name, lander_uuid, user, callback) {
     var error;
 
     var archive_path = base_clickjacker_dir + "/public/archive/" + user + "/" + lander_uuid + "/";
 
     var mkdir_cmd = "mkdir -p " + archive_path;
-    var zip_cmd = "zip -r " + archive_path + zip_name + " " + index_path;
+    var zip_cmd = "cd " + staging_path + " && zip -r " + archive_path + zip_name + " *";
 
-    console.log("Archiving " + index_path + " to " + archive_path + zip_name);
+    console.log("Archiving " + staging_path + "/* to " + archive_path + zip_name);
 
     cmd.exec(mkdir_cmd, function (err1, stdout, stderr) {
         if(err1) {
@@ -852,6 +863,7 @@ app.post('/upload', checkAuth, function(req, res) {
     var lander_id;
     var lander_uuid;
     var index_path;
+    var index_path_and_name;
 
     createStagingPath(req.files.myFile.name, function(staging_path, error) {
         if(error) {
@@ -872,7 +884,7 @@ app.post('/upload', checkAuth, function(req, res) {
                 return;
             }
 
-            unzip(staging_path, zip_name, function(index_path, error) {
+            unzip(staging_path, index_name, zip_name, function(index_file_and_path, error) {
                 if(error) {
                     console.log(error);
                     res.status(500);
@@ -888,7 +900,7 @@ app.post('/upload', checkAuth, function(req, res) {
                         return;
                     }
 
-                    extractData(index_path, index_name, lander_uuid, function(error) {
+                    extractData(index_file_and_path, lander_uuid, function(error) {
                         if(error) {
                             console.log(error);
                             res.status(500);
@@ -896,7 +908,7 @@ app.post('/upload', checkAuth, function(req, res) {
                             return;
                         }
 
-                        installLanderCode(index_path, index_name, lander_uuid, function(error) {
+                        installLanderCode(staging_path, lander_uuid, function(error) {
                             if(error) {
                                 console.log(error);
                                 res.status(500);
@@ -904,7 +916,7 @@ app.post('/upload', checkAuth, function(req, res) {
                                 return;
                             }
 
-                            rezipAndArchive(index_path, zip_name, lander_uuid, user, function(archive_path, error) {
+                            rezipAndArchive(staging_path, zip_name, lander_uuid, user, function(archive_path, error) {
                                 if(error) {
                                     console.log(error);
                                     res.status(500);
