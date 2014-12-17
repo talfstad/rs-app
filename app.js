@@ -67,7 +67,8 @@ connection.connect();
 
 //change depending on your dev setup or for production
 //var base_clickjacker_dir = "/Users/alfstad/Desktop/clickjacker";
-var base_clickjacker_dir = "/home/troy/git/clickjacker";
+//var base_clickjacker_dir = "/home/troy/git/clickjacker";
+var base_clickjacker_dir = "/c/Users/Troy/git/clickjacker";
 
 function checkAuth(req, res, next) {
     if (req.session.user_id === 'admin') {
