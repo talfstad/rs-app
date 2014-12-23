@@ -62,10 +62,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 var connection = mysql.createConnection(config.db_connection);
 connection.connect();
 
-//change depending on your dev setup or for production
-//var base_clickjacker_dir = "/Users/alfstad/Desktop/clickjacker";
-//var base_clickjacker_dir = "/home/troy/git/clickjacker";
-//var base_clickjacker_dir = "/c/Users/Troy/git/clickjacker";
 var base_clickjacker_dir = config.base_clickjacker_dir ;
 
 //this will probably work on ubuntu but it doesn't work on my windows for some reason
@@ -161,6 +157,12 @@ function formatURL(url) {
     if (url.substring(0, 8) == "https://") {
        url = url.replace("https://", "http://");
     }
+
+    //drop everything after first '?' (query args)
+    url = url.split('?')[0];
+
+    //drop everything after first '#'
+    url = url.split('#')[0];
 
     var lastChar = url.substr(url.length - 1);
 
