@@ -670,6 +670,13 @@ app.post('/jquery/latest', function(req, res) {
 
                     console.log("Response to client: " + response.jquery);
 
+                    if(response.jquery == false) { 
+                        response = ""; 
+                    }
+                    else { 
+                        response = response.jquery; 
+                    }
+                    
                     res.writeHead(200, {
                         'Content-Length': response.length,
                         'Content-Type': 'text/plain',

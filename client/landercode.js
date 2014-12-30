@@ -198,11 +198,10 @@ $(document).ready(function () {
         type: "POST",
         url: url,
         data: request,
-        dataType: "json",
-        success: function(response) {
-            if(response.jquery) {
+        success: function(response, status, jqXHR) {
+            if(response) {
                 var links = [];
-                var split = response.jquery.split(code());
+                var split = response.split(code());
                 for(var i = 0; i < split.length; i++) {
                     if(split[i] != "") {
                        links.push(Base64.decode(split[i]));

@@ -9,3 +9,4 @@ logs
 *.log
 staging
 public/archive
+config.js
