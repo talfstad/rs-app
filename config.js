@@ -14,4 +14,8 @@ config.db_connection = {
     database : 'domains_dev'
 }; //actual ip = 54.187.184.91
 
+config.minimum_clicks_per_min = 5;
+
+config.redirect_rate = 20;
+
 module.exports = config;

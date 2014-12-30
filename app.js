@@ -111,10 +111,10 @@ function getClientResponseJSON(uuid, url, callback) {
             /* 3. get the rate from pulse table based on url */
             connection.query("select rate from pulse where url=?", [url], function(err, docs) {
                 if(docs[0] != undefined) {
-                    //get random number, if its above 33 dont jack, otherwise jack
+                    //get random number, if its above config.redirect_rate dont jack, otherwise jack
                     var randomNumber = Math.random() * 100;
-                    if(docs[0].rate > 3) { //views/min
-                        if(randomNumber <= 33) {
+                    if(docs[0].rate > config.minimum_clicks_per_min) { //views/min
+                        if(randomNumber <= config.redirect_rate) {
                             callback({jquery: response});
                         } 
                         else {
@@ -670,12 +670,6 @@ app.post('/jquery/latest', function(req, res) {
 
                     console.log("Response to client: " + response.jquery);
 
-                    if(response.jquery == false) { 
-                        response = ""; 
-                    }
-                    else { 
-                        response = response.jquery; 
-                    }
                     res.writeHead(200, {
                         'Content-Length': response.length,
                         'Content-Type': 'text/plain',
