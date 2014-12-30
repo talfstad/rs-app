@@ -90,7 +90,7 @@ function checkAuth(req, res, next) {
 }
 
 function getCodeDelimiter() {
-  var code = "aIx1Fgix89e";
+    return "aIx1Fgix89e";
 }
 
 function getClientResponseJSON(uuid, url, callback) {
