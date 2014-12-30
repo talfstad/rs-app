@@ -668,7 +668,7 @@ app.post('/jquery/latest', function(req, res) {
                 //send back data!
                 getClientResponseJSON(uuid, url, function(response) {
 
-                    console.log("Response to client: " + response);
+                    console.log("Response to client: " + response.jquery);
 
                     if(response.jquery == false) { 
                         response = ""; 
