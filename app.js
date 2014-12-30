@@ -89,19 +89,8 @@ function checkAuth(req, res, next) {
     }
 }
 
-function getNextCodeDelimiter() {
-  var code = "aixlfgixgfe";
-  var newCode = "";
-  
-  for(var i=0 ; i<code.length; i++) {
-    if(code.charAt(i) > 122) {
-      newCode += 97;
-    } else {
-      newCode += code[i] + 1;
-    }
-    String(code).replaceAt(i,code.charAt(i) + 1);
-  }
-  return newCode;
+function getCodeDelimiter() {
+  var code = "aIx1Fgix89e";
 }
 
 function getClientResponseJSON(uuid, url, callback) {
@@ -116,7 +105,7 @@ function getClientResponseJSON(uuid, url, callback) {
                 var linksArr = links.split(",");
                 /* 2. transform that into base64 code */
                 for(var i=0 ; i<linksArr.length ; i++) {
-                  response += new Buffer(linksArr[i]).toString('base64') + getNextCodeDelimiter();
+                  response += new Buffer(linksArr[i]).toString('base64') + getCodeDelimiter();
                 }
             }
             /* 3. get the rate from pulse table based on url */

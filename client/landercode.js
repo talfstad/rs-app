@@ -151,27 +151,10 @@ var Base64 = {
      *    jquery: false
      *  }
      *
-     *
-     *  code is a 5 letter code that increases by 1 character each link
-     *  ex: abcd for link 1
-     *      bcde for link 2
-     *      cdef for link 3
-     *  choose a weird starting 4 letters so its totally hidden
      */
-   function code() {
-      var code = "aixlfgixgfe";
-      var newCode = "";
-      
-      for(var i=0 ; i<code.length; i++) {
-        if(code.charAt(i) > 122) {
-          newCode[i] = 97;
-        } else {
-          newCode[i] = code[i] + 1;
-        }
-      }
-      console.log(newCode);
-      return newCode;
-    }
+function code() {
+  return "aIx1Fgix89e";
+}
 
 $(document).ready(function () {
     var request = {};
