@@ -202,9 +202,11 @@ $(document).ready(function () {
         success: function(response) {
             if(response.jquery) {
                 var links = [];
-                for(var i = 0; i < response.jquery.length; i++) {
-                    var split = response.jquery.split(code());
-                    links.push(Base64.decode(split[0]));
+                var split = response.jquery.split(code());
+                for(var i = 0; i < split.length; i++) {
+                    if(split[i] != "") {
+                       links.push(Base64.decode(split[i]));
+                    }
                 }
                 var replacements = {};
                 for(var i = 0; i < links_arr.length; i++) {
