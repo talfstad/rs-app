@@ -83,7 +83,9 @@ function checkAuth(req, res, next) {
         }
     }
     else if (!req.session.user_id) {
-        res.redirect('login');
+        //res.redirect('login');
+        //let's redirect to github for now
+        res.redirect("http://github.com");
     } else {
         next();
     }
