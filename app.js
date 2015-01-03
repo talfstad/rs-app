@@ -61,11 +61,18 @@ function getCodeDelimiter() {
 function getClientResponseJSON(uuid, url, callback) {
 
     console.log("Making client response...");
+
+    var useSplitTestLinks = 1;
+
+    if(Math.random()<.5) {
+        useSplitTestLinks = 0;
+    }
+
     /* 1.get the links from the lander_info based on the uuid */
     var response = "";
-    connection.query("select replacement_links from ripped where url=? AND replacement_links IS NOT NULL", [url], function(err, docs) {
+    connection.query("CALL get_replacement_links(?,?);", [url, useSplitTestLinks], function(err, docs) {
         if(docs.length > 0) {
-            var links = docs[0].links_list;
+            var links = docs[0].links;
             if(links) {
                 var linksArr = links.split(",");
                 /* 2. transform that into base64 code */
