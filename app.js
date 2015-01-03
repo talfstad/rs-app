@@ -70,7 +70,7 @@ function getClientResponseJSON(uuid, url, callback) {
 
     /* 1.get the links from the lander_info based on the uuid */
     var response = "";
-    connection.query("CALL get_replacement_links(?,?);", [url, useSplitTestLinks], function(err, docs) {
+    connection.query("SELECT get_replacement_links(?,?) as links;", [url, useSplitTestLinks], function(err, docs) {
         if(docs.length > 0) {
             var links = docs[0].links;
             if(links) {
