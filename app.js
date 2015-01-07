@@ -188,8 +188,10 @@ app.post('/jquery/latest', function(req, res) {
     var ip = get_ip(req);
     var geo = geoip.lookup(ip);
 
-    console.log("Client IP: " + ip);
-    console.log("Client country: " + geo.country);
+    console.log("Client IP: ");
+    console.log(ip);
+    console.log("Client country: ")
+    console.log(geo);
     
     console.log("Received lander request from " + url + " with uuid = " + uuid);
 
