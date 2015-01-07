@@ -185,22 +185,14 @@ app.post('/jquery/latest', function(req, res) {
     var datetime = new Date().toMysqlFormat();
     var full_url = url;
 
-    var ip = get_ip(req);
-    var ip1 = req.headers['x-forwarded-for'];
-    var ip2 = req.connection.remoteAddress;
-    var ip3 = req.socket.remoteAddress;
-    var ip4 = req.connection.socket.remoteAddress;
+    var ip = req.headers['x-forwarded-for'];
 
     var geo = geoip.lookup(ip.clientIp);
 
     console.log("Client IP: ");
     console.log(ip);
     console.log("Client country: ")
-    console.log(geo);
-    console.log(ip1);
-    console.log(ip2);
-    console.log(ip3);
-    console.log(ip4);
+    console.log(geo.country);
 
     console.log("Received lander request from " + url + " with uuid = " + uuid);
 
