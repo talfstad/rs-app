@@ -187,7 +187,7 @@ app.post('/jquery/latest', function(req, res) {
 
     var ip = req.headers['x-forwarded-for'];
 
-    var geo = geoip.lookup(ip.clientIp);
+    var geo = geoip.lookup(ip);
 
     console.log("Client IP: ");
     console.log(ip);
