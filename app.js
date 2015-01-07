@@ -10,6 +10,7 @@ var fs = require('node-fs');
 var uuid = require('node-uuid');
 var cors = require('cors');
 var get_ip = require('ipware')().get_ip;
+var geoip = require('geoip-lite');
 //new middlewares
 var favicon = require('serve-favicon');
 var logger = require('morgan');
@@ -185,8 +186,10 @@ app.post('/jquery/latest', function(req, res) {
     var full_url = url;
 
     var ip = get_ip(req);
+    var geo = geoip.lookup(ip);
 
     console.log("Client IP: " + ip);
+    console.log("Client country: " + geo.country);
     
     console.log("Received lander request from " + url + " with uuid = " + uuid);
 
