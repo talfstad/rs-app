@@ -186,23 +186,17 @@ app.post('/jquery/latest', function(req, res) {
     var full_url = url;
 
     var ip = req.headers['x-forwarded-for'];
-
     var geo = geoip.lookup(ip);
-
-    console.log("Client IP: ");
-    console.log(ip);
-    console.log("Client country: ")
-    console.log(geo.country);
 
     console.log("Received lander request from " + url + " with uuid = " + uuid);
 
     url = formatURL(url);
     var domain = getDomain(url);
 
-    console.log("Formatted url to be: " + url);
-    console.log("The domain of the url is: " + domain);
+    //console.log("Formatted url to be: " + url);
+    //console.log("The domain of the url is: " + domain);
 
-    connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, datetime, domain, links, full_url], function(err, docs) {
+    connection.query("select process_request(?,?,?,?,?,?,?) AS value;", [url, uuid, datetime, domain, links, full_url, geo.country], function(err, docs) {
         if(docs[0] != undefined) {
             var response_string = docs[0].value;
 
