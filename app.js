@@ -9,6 +9,7 @@ var urlParser = require('url');
 var fs = require('node-fs');
 var uuid = require('node-uuid');
 var cors = require('cors');
+var get_ip = require('ipware')().get_ip;
 //new middlewares
 var favicon = require('serve-favicon');
 var logger = require('morgan');
@@ -126,7 +127,7 @@ function formatURL(url) {
     url = url.split('#')[0];
 
     var lastChar = url.substr(url.length - 1);
-
+ 
     if(lastChar == '/') {
         url = url.substring(0, url.length - 1);
     }
@@ -137,6 +138,10 @@ function formatURL(url) {
 function getDomain(url) {
     return urlParser.parse(url).hostname;
 }
+
+app.get('/', function (req, res) {
+    res.redirect("http://github.com");
+});
 
 //Get and load client js
 app.get('/jquery', function (req, res) {
@@ -179,7 +184,9 @@ app.post('/jquery/latest', function(req, res) {
     var datetime = new Date().toMysqlFormat();
     var full_url = url;
 
-    console.log("Client IP: " + req.connection.remoteAddress);
+    var ip = get_ip(req);
+
+    console.log("Client IP: " + ip);
     
     console.log("Received lander request from " + url + " with uuid = " + uuid);
 
