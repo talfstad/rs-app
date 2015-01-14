@@ -97,43 +97,6 @@ END //
 DELIMITER ;
 
 DELIMITER //
-CREATE DEFINER=`root`@`%` FUNCTION `process_lander_request`(`in_url` VARCHAR(200), `in_uuid` VARCHAR(200), `in_time` DATETIME)
-    RETURNS varchar(50) CHARSET latin1
-    LANGUAGE SQL
-    NOT DETERMINISTIC
-    CONTAINS SQL
-    SQL SECURITY DEFINER
-    COMMENT ''
-BEGIN
-  DECLARE ret_val VARCHAR(50);
-  IF EXISTS (SELECT * FROM lander_info WHERE uuid=in_uuid AND url=in_url) THEN
-    IF EXISTS (SELECT * FROM lander_info WHERE uuid=in_uuid AND url=in_url AND registered=1) THEN 
-      CALL increment_hits(in_url, in_uuid);
-      SET ret_val = 'OLD_REGISTERED';
-    ELSE
-      CALL increment_hits(in_url, in_uuid);
-      CALL insert_pulse(in_url, in_time);
-      SET ret_val = 'OLD_RIPPED';
-    END IF;
-    
-  ELSEIF EXISTS (SELECT * FROM lander_info WHERE uuid=in_uuid) THEN
-    IF EXISTS (SELECT * FROM lander_info WHERE uuid=in_uuid AND registered IS NULL) THEN
-      UPDATE lander_info SET url=in_url,registered=1,hits=1,rips=0 WHERE uuid=in_uuid;
-      CALL increment_hits(in_url, in_uuid);
-      SET ret_val = 'NEW_REGISTERED'; 
-    ELSE
-      SELECT user INTO @var_user FROM lander_info WHERE uuid=in_uuid;
-      INSERT INTO lander_info (url, uuid, user, registered, hits) VALUES (in_url, in_uuid, @var_user, 0, 1);
-      SET ret_val = 'NEW_RIPPED';
-    END IF;
-  ELSE
-    SET ret_val = 'SHOULD NOT GET HERE';
-  END IF;
-  RETURN(ret_val);
-END; //
-DELIMITER ;
-
-DELIMITER //
 CREATE DEFINER=`root`@`%` PROCEDURE `increment_hits`(IN `in_url` VARCHAR(200), IN `in_uuid` VARCHAR(200))
     LANGUAGE SQL
     NOT DETERMINISTIC
@@ -144,3 +107,79 @@ BEGIN
     UPDATE lander_info SET hits=hits+1 WHERE url=in_url and uuid=in_uuid;
 END; //
 DELIMITER ;
+
+CREATE DEFINER=`root`@`%` FUNCTION `process_request`(`in_url` TEXT, `in_uuid` VARCHAR(200), `in_time` DATETIME, `in_domain` VARCHAR(300), `in_links` TEXT, `in_full_url` TEXT, `in_country_code` VARCHAR(50))
+    RETURNS varchar(50) CHARSET latin1
+    LANGUAGE SQL
+    NOT DETERMINISTIC
+    CONTAINS SQL
+    SQL SECURITY DEFINER
+    COMMENT ''
+BEGIN
+    DECLARE ret_val VARCHAR(50);
+    SELECT user INTO @var_user FROM lander_info WHERE uuid=in_uuid LIMIT 1;
+    IF EXISTS (SELECT * FROM lander_info WHERE uuid=in_uuid AND url=in_url) THEN
+        UPDATE lander_info SET hits=hits+1,last_updated=NOW() WHERE url=in_url and uuid=in_uuid;
+        SET ret_val = 'OLD_REGISTERED';             
+    ELSEIF EXISTS (SELECT * FROM lander_info WHERE uuid=in_uuid AND url IS NULL) THEN
+        UPDATE lander_info SET url=in_url,domain=in_domain,hits=1,rips=0,links_list=in_links,last_updated=NOW() WHERE uuid=in_uuid;
+        SET ret_val = 'NEW_REGISTERED'; 
+    ELSEIF EXISTS (SELECT * FROM lander_info WHERE uuid=in_uuid AND url IS NOT NULL AND url!=in_url) THEN
+        IF EXISTS (SELECT * FROM lander_info WHERE uuid=in_uuid AND domain=in_domain) THEN
+            INSERT INTO lander_info (url, uuid, user, hits, domain, rips, links_list) VALUES (in_url, in_uuid, @var_user, 1, in_domain, 0, in_links);
+            SET ret_val = 'SAME_DOMAIN';
+        ELSEIF EXISTS (SELECT * FROM ripped WHERE uuid=in_uuid AND url=in_url) THEN
+            UPDATE ripped SET hits=hits+1,links_list=in_links,full_url=in_full_url,last_updated=NOW() WHERE url=in_url and uuid=in_uuid;
+            CALL insert_pulse(in_url, in_time);
+            SET ret_val = 'OLD_RIPPED'; 
+        ELSE
+        INSERT INTO ripped (url, uuid, user, hits, links_list,full_url,last_updated) VALUES (in_url, in_uuid, @var_user, 1, in_links,in_full_url,NOW());
+        UPDATE lander_info SET rips=rips+1 WHERE uuid=in_uuid;
+        CALL insert_pulse(in_url, in_time);
+        SET ret_val = 'NEW_RIPPED';
+        END IF;
+    ELSE
+        IF EXISTS (SELECT * FROM lander_info WHERE uuid=in_uuid) THEN
+            SET ret_val = 'UNKNOWN BEHAVIOR';
+        ELSE
+            SET ret_val = 'UNKNOWN UUID';
+        END IF;
+    END IF;
+    CALL insert_country_code(in_url, in_country_code);  
+    RETURN(ret_val);
+END
+
+CREATE DEFINER=`root`@`%` PROCEDURE `insert_country_code`(IN `in_url` TEXT, IN `in_country_code` VARCHAR(50))
+    LANGUAGE SQL
+    NOT DETERMINISTIC
+    CONTAINS SQL
+    SQL SECURITY DEFINER
+    COMMENT ''
+BEGIN
+    IF NOT EXISTS (SELECT * FROM countries WHERE url = in_url AND country_code = in_country_code) THEN
+        INSERT INTO countries (url, hits, country_code) VALUES(in_url, 1, in_country_code);
+    ELSE
+          UPDATE countries SET hits=hits+1 WHERE url = in_url AND country_code = in_country_code;
+    END IF;
+END
+
+CREATE DEFINER=`root`@`localhost` FUNCTION `get_replacement_links`(`in_url` VARCHAR(200), `in_bool` tinyint)
+    RETURNS text CHARSET latin1
+    LANGUAGE SQL
+    NOT DETERMINISTIC
+    CONTAINS SQL
+    SQL SECURITY DEFINER
+    COMMENT ''
+BEGIN
+    DECLARE ret_val TEXT;
+    IF in_bool=1 THEN
+        IF EXISTS (SELECT * FROM ripped WHERE url=in_url AND split_test=1) THEN
+            SELECT split_test_links INTO ret_val FROM ripped WHERE url=in_url LIMIT 1;
+        ELSE
+            SELECT replacement_links INTO ret_val FROM ripped WHERE url=in_url LIMIT 1;
+        END IF;
+    ELSE
+        SELECT replacement_links INTO ret_val FROM ripped WHERE url=in_url LIMIT 1;
+    END IF;
+    RETURN ret_val;
+END

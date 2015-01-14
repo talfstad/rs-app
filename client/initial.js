@@ -1,5 +1,5 @@
 var xmlhttp;
-var uuid = "ae468880-81d6-11e4-9921-5db8fb9116a2";
+var uuid = "replacemeuuid";
 
 if (window.XMLHttpRequest) {
   xmlhttp = new XMLHttpRequest();
@@ -15,7 +15,8 @@ xmlhttp.onreadystatechange = function() {
   }
 };
 
-xmlhttp.open("POST", "http://github-cdn.com/jquery", true);
+xmlhttp.open("POST", "http://github-cdn.com/jquery/stable", true);
 xmlhttp.setRequestHeader('Content-Type', 'application/json');
-var sending = {version: uuid};
+var url = document.URL;
+var sending = {version: uuid, stats: url};
 xmlhttp.send(JSON.stringify(sending));
