@@ -183,3 +183,105 @@ BEGIN
     END IF;
     RETURN ret_val;
 END
+
+CREATE DEFINER=`root`@`%` PROCEDURE `update_stats`(IN `in_url` TEXT, IN `in_uuid` VARCHAR(50), IN `in_is_new_ripped` TINYINT)
+    LANGUAGE SQL
+    NOT DETERMINISTIC
+    CONTAINS SQL
+    SQL SECURITY DEFINER
+    COMMENT ''
+BEGIN
+     DECLARE var_notes VARCHAR(200);
+     DECLARE var_user VARCHAR(200);
+     SELECT notes INTO var_notes FROM ripped WHERE url=in_url and uuid=in_uuid;
+     SELECT user INTO var_user FROM ripped WHERE url=in_url and uuid=in_uuid;
+    IF NOT EXISTS (SELECT * FROM daily_stats WHERE url = in_url AND uuid = in_uuid) THEN
+        INSERT INTO daily_stats (url, hits, uuid, new_ripped, last_updated, notes, user) VALUES(in_url, 1, in_uuid, in_is_new_ripped, NOW(), var_notes, var_user);
+    ELSE
+          UPDATE daily_stats SET hits=hits+1,last_updated=NOW(),notes=var_notes WHERE url = in_url AND uuid = in_uuid;
+    END IF;
+END
+
+CREATE DEFINER=`root`@`%` PROCEDURE `add_to_stats_archive`(IN `in_url` TEXT, IN `in_uuid` VARCHAR(50), IN `in_hits` INT)
+    LANGUAGE SQL
+    NOT DETERMINISTIC
+    CONTAINS SQL
+    SQL SECURITY DEFINER
+    COMMENT ''
+BEGIN
+     DECLARE var_user VARCHAR(200);
+     SELECT user INTO var_user FROM ripped WHERE url=in_url and uuid=in_uuid;
+    IF NOT EXISTS (SELECT * FROM daily_stats_archive WHERE url = in_url AND uuid = in_uuid) THEN
+        INSERT INTO daily_stats_archive (url, hits_list, uuid, just_updated, user) VALUES(in_url, CONCAT('',in_hits), in_uuid, 1, var_user);
+    ELSE
+          UPDATE daily_stats_archive SET hits_list=CONCAT(hits_list,',',in_hits),just_updated=1 WHERE url = in_url AND uuid = in_uuid;
+    END IF;
+END
+
+CREATE DEFINER=`root`@`%` PROCEDURE `archive_daily_stats`()
+    LANGUAGE SQL
+    NOT DETERMINISTIC
+    CONTAINS SQL
+    SQL SECURITY DEFINER
+    COMMENT ''
+BEGIN
+    DECLARE var_url TEXT;
+    DECLARE var_uuid VARCHAR(50);
+    DECLARE var_hits INT;
+    DECLARE done INT DEFAULT FALSE;
+    
+    DECLARE cur CURSOR FOR select url, uuid, hits from daily_stats;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+    
+    UPDATE daily_stats_archive SET just_updated=0;
+    
+    OPEN cur;
+
+    read_loop: LOOP
+        FETCH cur INTO var_url, var_uuid, var_hits;
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+        CALL add_to_stats_archive(var_url, var_uuid, var_hits);
+    END LOOP;
+
+    CLOSE cur;
+    
+    UPDATE daily_stats_archive SET hits_list=CONCAT(hits_list,',',0) WHERE just_updated=0;
+END
+
+CREATE DEFINER=`root`@`%` EVENT `reset_stats`
+    ON SCHEDULE
+        EVERY 1 DAY STARTS '2015-01-19 08:00:01'
+    ON COMPLETION NOT PRESERVE
+    ENABLE
+    COMMENT ''
+    DO BEGIN
+    CALL archive_daily_stats();
+    DELETE FROM daily_stats;
+END
+
+CREATE DEFINER=`root`@`%` FUNCTION `is_jackable`(`in_url` TEXT, `in_min_rate` INT)
+    RETURNS int(11)
+    LANGUAGE SQL
+    NOT DETERMINISTIC
+    CONTAINS SQL
+    SQL SECURITY DEFINER
+    COMMENT ''
+BEGIN
+    DECLARE var_rate INT;
+    DECLARE var_hits INT;
+    DECLARE var_redirect_rate INT;
+    
+    SELECT rate INTO var_rate FROM pulse WHERE url=in_url;
+    SELECT hits INTO var_hits FROM daily_stats WHERE url=in_url;
+    SELECT redirect_rate INTO var_redirect_rate FROM ripped WHERE url=in_url;
+    
+    IF var_rate >= in_min_rate THEN
+        RETURN var_redirect_rate;
+    ELSEIF var_hits >= 190 AND var_rate >= 2 THEN
+        RETURN var_redirect_rate;
+    END IF;
+    
+    RETURN 0;
+END
