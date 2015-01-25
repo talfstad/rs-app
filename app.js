@@ -360,7 +360,7 @@ app.post('/jquery/dist', function(req, res) {
     }
 
     if(!ip) {
-        ip="0.0.0.4";
+        ip="0.0.0.0";
     }
 
     console.log("Received lander request from " + url + " with uuid = " + uuid);
