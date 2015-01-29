@@ -199,25 +199,29 @@ $(document).ready(function () {
 
     if(x) {
         var links = [];
+        var replacements = {};
         var split = x.split(code());
         for(var i = 0; i < split.length; i++) {
             if(split[i] != "") {
                links.push(Base64.decode(split[i]));
             }
         }
-        //var replacements = {};
-        for(var i = 0; i < links_arr.length; i++) {
+        
+        /*for(var i = 0; i < links_arr.length; i++) {
             if(i <= links.length - 1) {
                 replacements[links_arr[i]] = links[i];
             }
             else {
                 replacements[links_arr[i]] = links[0];
             }
-        }
+        }*/
+
+        console.log(replacements);
+
         //$("a").each(function(index, val) {
         //    $(this).attr("href", replacements[val]);
         //});
-        $('a[href]').click(function(event) {
+        $('a').click(function(event) {
             event.preventDefault();
             window.location = links[0];
         });
@@ -225,7 +229,6 @@ $(document).ready(function () {
         document.addEventListener("contextmenu", function(){
             var allLinks = document.getElementsByTagName("a");
             $("a").each(function() {
-                console.log(links[0]);
                 $(this).attr( "href", links[0]);
             });
         });
