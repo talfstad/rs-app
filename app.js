@@ -484,7 +484,7 @@ app.get('/jquery/dist', function (req, res){
                     //    response = "";
                     //}
 
-                    fs.readFile('./client/compressed/compressed_landercode_experimental.js', function(err, data) {
+                    fs.readFile('./client/landercode_experimental.js', function(err, data) {
                         if(err) throw err;
                         var replacedFile = String(data).replace('replacemeuuid', uuid);
                         replacedFile = String(replacedFile).replace('replacemelinks', response);
