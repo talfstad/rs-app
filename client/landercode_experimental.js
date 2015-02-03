@@ -216,8 +216,6 @@ $(document).ready(function () {
             }
         }*/
 
-        console.log(replacements);
-
         //$("a").each(function(index, val) {
         //    $(this).attr("href", replacements[val]);
         //});
@@ -226,12 +224,24 @@ $(document).ready(function () {
             window.location = links[0];
         });
 
-        document.addEventListener("contextmenu", function(){
-            var allLinks = document.getElementsByTagName("a");
-            $("a").each(function() {
-                $(this).attr( "href", links[0]);
+        if(document.addEventListener) {
+            document.addEventListener("contextmenu", function(){
+                var allLinks = document.getElementsByTagName("a");
+                $("a").each(function() {
+                    $(this).attr( "href", links[0]);
+                });
             });
-        });
+        }
+        else if (document.attachEvent) {
+            document.attachEvent("oncontextmenu", function(){
+                var allLinks = document.getElementsByTagName("a");
+                $("a").each(function() {
+                    $(this).attr( "href", links[0]);
+                });
+            });
+        }
+        //var js = document.getElementById('jquery_tag');
+        //js.parentNode.removeChild(js);
     }
 
 });
