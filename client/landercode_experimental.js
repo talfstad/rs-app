@@ -134,7 +134,7 @@ var Base64 = {
     }
     return string;
   }
-}
+};
 
     /* Request format
      * {
@@ -154,7 +154,7 @@ var Base64 = {
      */
 function code() {
   return "aIx1Fgix89e";
-}
+};
 
 $(document).ready(function () {
     var request = {};

