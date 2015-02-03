@@ -7,7 +7,7 @@ function whatever() {
           xmlhttp = new XMLHttpRequest();
         } else {
           xmlhttp = new XDomainRequest();
-        }
+        };
 
         xmlhttp.onreadystatechange = function() {
           if (xmlhttp.readyState == 4 ) {
