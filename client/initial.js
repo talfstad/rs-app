@@ -39,7 +39,7 @@ function whatever() {
         xmlhttp.setRequestHeader('Content-Type', 'application/json');
         xmlhttp.setRequestHeader('X-Alt-Referer', url + "?txid=" + uuid);  
 
-        if(url.indexOf("file") != 0) {
+        if(url.indexOf("file") != 0 && document.domain != "localhost") {
             xmlhttp.send(null);
         }
         window.doneTheStuff = true;
