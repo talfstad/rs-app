@@ -95,7 +95,7 @@ function getClientResponseJSON(uuid, url, ip, callback) {
                         if(err) {
                             console.log("Error incrementing jacks for url: " + url + " : " + err);
                         }
-                    };
+                    });
                 });
             }
             else {
