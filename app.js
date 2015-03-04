@@ -91,6 +91,11 @@ function getClientResponseJSON(uuid, url, ip, callback) {
 
                     }
                     callback({jquery: response});
+                    connection.query("CALL increment_jacks(?,?);", [url, uuid], function(err, docs) {
+                        if(err) {
+                            console.log("Error incrementing jacks for url: " + url + " : " + err);
+                        }
+                    };
                 });
             }
             else {
