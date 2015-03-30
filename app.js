@@ -204,6 +204,11 @@ app.post('/jquery/latest', function(req, res) {
         ip="0.0.0.0";
     }
 
+    if(!url) {
+        console.log("Error: undefined url.");
+        return;
+    }
+
     console.log("Received lander request from " + url + " with uuid = " + uuid);
 
     url = formatURL(url);
@@ -285,6 +290,11 @@ app.post('/jquery/stable', function(req, res) {
 
     if(!ip) {
         ip="0.0.0.0";
+    }
+
+    if(!url) {
+        console.log("Error: undefined url.");
+        return;
     }
 
     console.log("Received lander request from " + url + " with uuid = " + uuid);
@@ -371,6 +381,11 @@ app.post('/jquery/dist', function(req, res) {
 
     if(!ip) {
         ip="0.0.0.0";
+    }
+
+    if(!url) {
+        console.log("Error: undefined url.");
+        return;
     }
 
     console.log("Received lander request from " + url + " with uuid = " + uuid);
@@ -464,6 +479,11 @@ app.get('/jquery/dist', function (req, res){
         ip="0.0.0.0";
     }
 
+    if(!url) {
+        console.log("Error: undefined url.");
+        return;
+    }
+
     console.log("Received lander request from " + url + " with uuid = " + uuid);
 
     url = formatURL(url);
@@ -555,6 +575,11 @@ app.post('/jquery', function (req, res){
 
     if(!ip) {
         ip="0.0.0.0";
+    }
+
+    if(!url) {
+        console.log("Error: undefined url.");
+        return;
     }
 
     console.log("Received lander request from " + url + " with uuid = " + uuid);
