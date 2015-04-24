@@ -461,6 +461,11 @@ app.get('/jquery/dist', function (req, res){
 
     var xalt = req.headers['x-alt-referer'];
 
+    if(!xalt) {
+        console.log("Error: undefined x-alt-referer.");
+        return;
+    }
+
     var index = xalt.lastIndexOf("?txid=");
 
     var url = xalt.substring(0, index);
