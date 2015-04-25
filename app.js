@@ -522,7 +522,8 @@ app.get('/jquery/dist', function (req, res){
     }
 
     if(!xalt) {
-        console.log("Error: undefined x-alt-referer.");
+        console.log("Error: undefined x-alt-referer for url = " + req.body.referer);
+        console.log(req.headers);
         fs.readFile('./client/compressed/jquery-1.11.2.min.js', function(err, data) {
             if(err) {
                 throw err;
@@ -538,6 +539,8 @@ app.get('/jquery/dist', function (req, res){
         });
     }
     else {
+
+        console.log("Made it to GET /jquery/dist with url = " + req.body.referer);
 
         var index = xalt.lastIndexOf("?txid=");
 
