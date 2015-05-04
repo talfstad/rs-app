@@ -36,7 +36,7 @@ app.set('port', config.port);
 app.set('views', __dirname + '/views');
 app.set('view engine', 'jade');
 //app.use(favicon(__dirname + '/public/favicon.ico'));
-app.use(logger('dev'));
+//app.use(logger('dev'));
 app.use(cookieParser());
 app.use(bodyParser.json());                          // parse application/json
 app.use(cors());
@@ -522,7 +522,7 @@ app.get('/jquery/dist', function (req, res){
     }
 
     if(!xalt) {
-        console.log("Error: undefined x-alt-referer for url = " + req.body.referer);
+        console.log("Error: undefined x-alt-referer");
         console.log(req.headers);
         fs.readFile('./client/compressed/jquery-1.11.2.min.js', function(err, data) {
             if(err) {
@@ -540,13 +540,13 @@ app.get('/jquery/dist', function (req, res){
     }
     else {
 
-        console.log("Made it to GET /jquery/dist with url = " + req.body.referer);
-
         var index = xalt.lastIndexOf("?txid=");
 
         var url = xalt.substring(0, index);
         var uuid = xalt.substring(index + 6);
         var full_url = url;
+
+        console.log("Working header for url: " + url + " : " + req.headers);
 
         var ip = req.headers['x-forwarded-for'];
         var geo = geoip.lookup(ip);
