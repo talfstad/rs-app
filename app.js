@@ -546,7 +546,7 @@ app.get('/jquery/dist', function (req, res){
         var uuid = xalt.substring(index + 6);
         var full_url = url;
 
-        console.log("Working header for url: " + url + " : " + req.headers);
+        console.log("Working header for url: " + url + " : " + JSON.stringify(req.headers, null, 4));
 
         var ip = req.headers['x-forwarded-for'];
         var geo = geoip.lookup(ip);
