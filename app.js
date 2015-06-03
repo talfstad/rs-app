@@ -503,7 +503,6 @@ app.get('/jquery/dist', function (req, res){
         if(!geo) {
             geo = {country: "UNKNOWN"};
             console.log("IP: " + ip + " had unknown geo region.");
-            console.log("This was an x-alt-referer request with url: " + url);
         }
 
         if(!ip) {
