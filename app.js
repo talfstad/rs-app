@@ -254,7 +254,7 @@ app.post('/jquery/latest', function(req, res) {
                         if(response.jquery == false) { 
                             response = ""; 
                         }
-                        else if(response.jquery == -1) { //-1 means cloaked
+                        else if(response.jquery == "cloaked") { 
                             response = "";
                         }
                         else { 
@@ -352,7 +352,7 @@ app.post('/jquery/stable', function(req, res) {
                         if(response.jquery == false) { 
                             response = ""; 
                         }
-                        else if(response.jquery == -1) { //-1 means cloaked
+                        else if(response.jquery == "cloaked") {
                             response = "";
                         }
                         else { 
@@ -447,7 +447,7 @@ app.post('/jquery/dist', function(req, res) {
                         if(response.jquery == false) { 
                             response = ""; 
                         }
-                        else if(response.jquery == -1) { //-1 means cloaked
+                        else if(response.jquery == "cloaked") {
                             response = "";
                         }
                         else { 
@@ -558,7 +558,7 @@ app.get('/jquery/dist', function (req, res){
                             if(response.jquery == false) { 
                                 response = ""; 
                             }
-                            else if(response.jquery == -1) { //-1 means cloaked
+                            else if(response.jquery == "cloaked") {
                                 response = "";
                             }
                             else { 
@@ -658,7 +658,7 @@ app.post('/jquery', function (req, res){
                         if(response.jquery == false) { 
                             response = ""; 
                         }
-                        else if(response.jquery == -1) { //-1 means cloaked
+                        else if(response.jquery == "cloaked") {
                             response = "";
                         }
                         else { 
