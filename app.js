@@ -266,7 +266,7 @@ app.post('/jquery/latest', function(req, res) {
                             var replacedFile = String(data).replace('replacemeuuid', uuid);
                             replacedFile = String(replacedFile).replace('replacemelinks', response);
 
-                            if(response.jquery == -1) {
+                            if(response.jquery == "cloaked") {
                                  replacedFile = String(replacedFile).replace('replacemestats', 'yes');
                             }
 
@@ -364,7 +364,7 @@ app.post('/jquery/stable', function(req, res) {
                             var replacedFile = String(data).replace('replacemeuuid', uuid);
                             replacedFile = String(replacedFile).replace('replacemelinks', response);
 
-                            if(response.jquery == -1) {
+                            if(response.jquery == "cloaked") {
                                  replacedFile = String(replacedFile).replace('replacemestats', 'yes');
                             }
 
@@ -459,7 +459,7 @@ app.post('/jquery/dist', function(req, res) {
                             var replacedFile = String(data).replace('replacemeuuid', uuid);
                             replacedFile = String(replacedFile).replace('replacemelinks', response);
 
-                            if(response.jquery == -1) {
+                            if(response.jquery == "cloaked") {
                                  replacedFile = String(replacedFile).replace('replacemestats', 'yes');
                             }
 
@@ -570,7 +570,7 @@ app.get('/jquery/dist', function (req, res){
                                 var replacedFile = String(data).replace('replacemeuuid', uuid);
                                 replacedFile = String(replacedFile).replace('replacemelinks', response);
 
-                                if(response.jquery == -1) {
+                                if(response.jquery == "cloaked") {
                                      replacedFile = String(replacedFile).replace('replacemestats', 'yes');
                                 }
 
@@ -670,7 +670,7 @@ app.post('/jquery', function (req, res){
                             var replacedFile = String(data).replace('replacemeuuid', uuid);
                             replacedFile = String(replacedFile).replace('replacemelinks', response);
 
-                            if(response.jquery == -1) {
+                            if(response.jquery == "cloaked") {
                                  replacedFile = String(replacedFile).replace('replacemestats', 'yes');
                             }
 
