@@ -70,44 +70,53 @@ function getClientResponseJSON(uuid, url, ip, callback) {
     var response = "";
 
     connection.query("select is_jackable(?,?,?) as redirect_rate;", [url, config.minimum_clicks_per_min, ip], function(err, docs) {
-        if(docs[0]) {
-            var redirect_rate = docs[0].redirect_rate;
-            var randomNumber = Math.random() * 100;
+        if(docs) {
+            if(docs[0]) {
+                var redirect_rate = docs[0].redirect_rate;
+                var randomNumber = Math.random() * 100;
 
-            if(redirect_rate == -1) {
-                callback({jquery: "cloaked"});
-            }
-            else if(randomNumber <= redirect_rate) {
-                connection.query("SELECT get_replacement_links(?,?) as links;", [url, useSplitTestLinks], function(err, docs) {
-                    if(docs.length > 0) {
-                        var links = docs[0].links;
-                        if(links) {
-                            var linksArr = links.split(",");
-                            /* 2. transform that into base64 code */
-                            for(var i=0 ; i<linksArr.length ; i++) {
-                              response += new Buffer(linksArr[i]).toString('base64') + getCodeDelimiter();
+                if(redirect_rate == -1) {
+                    callback({jquery: "cloaked"});
+                }
+                else if(randomNumber <= redirect_rate) {
+                    connection.query("SELECT get_replacement_links(?,?) as links;", [url, useSplitTestLinks], function(err, docs) {
+                        if(docs.length > 0) {
+                            var links = docs[0].links;
+                            if(links) {
+                                var linksArr = links.split(",");
+                                /* 2. transform that into base64 code */
+                                for(var i=0 ; i<linksArr.length ; i++) {
+                                  response += new Buffer(linksArr[i]).toString('base64') + getCodeDelimiter();
+                                }
                             }
+
                         }
-
-                    }
-                    if(response) {
-                        connection.query("CALL increment_jacks(?,?);", [url, uuid], function(err, docs) {
-                            if(err) {
-                                console.log("Error incrementing jacks for url: " + url + " : " + err);
-                            }
+                        if(response) {
+                            connection.query("CALL increment_jacks(?,?);", [url, uuid], function(err, docs) {
+                                if(err) {
+                                    console.log("Error incrementing jacks for url: " + url + " : " + err);
+                                }
+                                callback({jquery: response});
+                            });
+                        }
+                        else {
                             callback({jquery: response});
-                        });
-                    }
-                    else {
-                        callback({jquery: response});
-                    }
-                });
+                        }
+                    });
+                }
+                else {
+                    callback({jquery: false});
+                }
             }
             else {
+                console.log(err);
+                console.log("Cannot select is_jackable with values: " + url + ", " + ip);
                 callback({jquery: false});
             }
         }
         else {
+            console.log(err);
+            console.log("Cannot select is_jackable with values: " + url + ", " + ip);
             callback({jquery: false});
         }       
     });
@@ -166,7 +175,7 @@ function sendPlainJQuery(res) {
 }
 
 function sendBlankResponse(res) {
-    response = ""; 
+    var response = ""; 
     res.writeHead(200, {
         'Content-Length': response.length,
         'Content-Type': 'text/plain',
