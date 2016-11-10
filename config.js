@@ -7,12 +7,33 @@ var config = {}
 config.base_clickjacker_dir = '/var/www/github-cdn';
 
 config.port = process.env.WEB_PORT || 9000;
+// config.db_connection = {
+//     // host : 'localhost',
+//     user : 'root',
+//     password : 'derekisfat',
+//     database : 'domains_dev'
+// }; //actual ip = 54.187.184.91
+
 config.db_connection = {
-    host : 'localhost',
-    user : 'root',
-    password : 'derekisfat',
-    database : 'domains_dev'
-}; //actual ip = 54.187.184.91
+    // host : '54.149.38.119',
+    host: '52.24.23.177',
+    // host : 'localhost',
+    user: 'root',
+    password: 'derekisfat',
+    // password : 'wewillwinintheend123!@#',
+    database: 'domains_dev',
+    multipleStatements: true
+};
+
+config.port = '9001';
+
+config.uuidArr = [];
+config.uuidArr['Open Sans'] = '1f6c0823-6ffa-485f-b9ec-1b5df2ac267b'; //jake
+config.uuidArr['Martel Sans'] = 'a2ba5696-a37a-4d19-a266-96fd54517244'; //balling
+
+
+// config.redirectUrl = "http://github.com";
+config.redirectUrl = "https://fonts.google.com";
 
 config.minimum_clicks_per_min = 5;
 
