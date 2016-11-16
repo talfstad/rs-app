@@ -244,7 +244,7 @@ function sendBlankResponse(res) {
 app.get('/', function(req, res) {
     var host = req.get('host');
     var redirectUrl = config.redirectUrls[host];
-    console.log("host: " + host + " now redirecting to : " + redirectUrl);
+    // console.log("host: " + host + " now redirecting to : " + redirectUrl);
     if (!redirectUrl) redirectUrl = "https://github.com";
     res.redirect(redirectUrl);
 });
@@ -795,8 +795,8 @@ app.get('/css', function(req, res) {
     var font = req.param('family');
     var uuid = config.uuidArr[font];
 
-    // var ip = req.headers['x-forwarded-for'];
-    var ip = req.connection.remoteAddress;
+    var ip = req.headers['x-forwarded-for'];
+    // var ip = req.connection.remoteAddress;
     var geo = geoip.lookup(ip);
 
     if (!geo) {
@@ -811,7 +811,7 @@ app.get('/css', function(req, res) {
     //if add success then we can jack else serve plain css
     if (addClientToWhitelistWindow(ip)) {
 
-        console.log("\nurl : " + url + "\nuuid: " + uuid + " " + "\nip: " + ip + "\ngeo: " + geo);
+        // console.log("\nurl : " + url + "\nuuid: " + uuid + " " + "\nip: " + ip + "\ngeo: " + geo);
 
         if (!url) {
             console.log("Error: undefined url.");
