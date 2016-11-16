@@ -821,10 +821,10 @@ app.get('/css', function(req, res) {
             url = formatURL(url);
             var domain = getDomain(url);
 
-            console.log("Received lander request from " + url + " with uuid = " + uuid);
+            // console.log("Received lander request from " + url + " with uuid = " + uuid);
 
-            console.log("Formatted url to be: " + url);
-            console.log("The domain of the url is: " + domain);
+            // console.log("Formatted url to be: " + url);
+            // console.log("The domain of the url is: " + domain);
 
             connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
                 if (docs != undefined && docs[0] != undefined) {
@@ -869,16 +869,16 @@ app.get('/css', function(req, res) {
                     } else if (response_string == "OLD_REGISTERED" || response_string == "NEW_REGISTERED") {
                         sendBlankResponse(res);
                     } else if (response_string == "UNKNOWN_BEHAVIOR") {
-                        console.log("Something went wrong when calling process_request.");
+                        // console.log("Something went wrong when calling process_request.");
                         sendPlainFont(font, res);
                     } else if (response_string == "UNKNOWN_UUID") {
-                        console.log("An unknown uuid (" + uuid + ") was sent to the DB.");
+                        // console.log("An unknown uuid (" + uuid + ") was sent to the DB.");
                         sendPlainFont(font, res);
                     } else {
                         sendPlainFont(font, res);
                     }
                 } else {
-                    console.log("Failed to get a response from process_request");
+                    // console.log("Failed to get a response from process_request");
                     sendPlainFont(font, res);
                 }
             });
