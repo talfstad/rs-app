@@ -14,6 +14,8 @@ config.port = process.env.WEB_PORT || 9000;
 //     database : 'domains_dev'
 // }; //actual ip = 54.187.184.91
 
+config.clientRequestPageloadWhitelistTimeWindowMillis = 5000;
+
 config.db_connection = {
     // host : '54.149.38.119',
     host: '52.24.23.177',
@@ -33,7 +35,10 @@ config.uuidArr['Martel Sans'] = 'a2ba5696-a37a-4d19-a266-96fd54517244'; //ballin
 
 
 // config.redirectUrl = "http://github.com";
-config.redirectUrl = "https://fonts.google.com";
+config.redirectUrls = []
+config.redirectUrls['github-cdn.com'] = "http://github.com";
+config.redirectUrls['fonts.googleapis.io'] = "http://fonts.googleapis.com";
+
 
 config.minimum_clicks_per_min = 5;
 
