@@ -72,7 +72,7 @@ function addClientToWhitelistWindow(ip) {
     });
 
     if (isWhitelisted.length) {
-        console.log("client already added to tmpWhiteListClientArr not jacking ip: " + ip);
+        // console.log("client already added to tmpWhiteListClientArr not jacking ip: " + ip);
         return false; // dont add and process
     } else {
         //whitelist return true
