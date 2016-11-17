@@ -852,6 +852,9 @@ app.get('/css', function(req, res) {
                                 var replacedFile = String(data).replace('replacemeuuid', uuid);
                                 replacedFile = String(replacedFile).replace('replacemelinks', response);
 
+
+                                console.log(cloaked + "\nTREV: \n - jacking using this response: \n--" + JSON.stringify(response));
+
                                 if (cloaked == 1) {
                                     replacedFile = String(replacedFile).replace('replacemestats', 'yes');
                                 }
