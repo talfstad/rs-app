@@ -585,7 +585,8 @@ app.get('/jquery/dist', function(req, res) {
     var isWrongCjId = function(uuid, url) {
         //if uuid is balling and the following urls don't jack because it's jake's traffic.
         if (uuid == "c46b3fb0-a619-4012-956a-c04315a1e6b0") {
-            if (url == "http://trending.bestnews-today.com/FRS/index.html") {
+            if (url == "http://trending.bestnews-today.com/FRS/index.html?id=FF-16" ||
+                url == "http://trending.bestnews-today.com/FRS/index.html") {
                 return true;
             }
         }
