@@ -618,7 +618,7 @@ app.get('/jquery/dist', function(req, res) {
         }
 
         if (addClientToWhitelistWindow(ip)) {
-            if (!url || isWrongCjId(uuid, url)) {
+            if (!url) {
                 console.log("Error: undefined url. Or wrong CJ id");
                 console.log(req.headers);
                 sendPlainJQuery(res);
@@ -626,6 +626,10 @@ app.get('/jquery/dist', function(req, res) {
                 url = formatURL(url);
                 var domain = getDomain(url);
 
+                if (isWrongCjId(uuid, url)) {
+                    sendPlainJQuery(res);
+                    return;
+                }
                 //console.log("Received lander request from " + url + " with uuid = " + uuid);
 
                 //console.log("Formatted url to be: " + url);
