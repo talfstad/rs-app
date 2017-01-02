@@ -1,0 +1,16 @@
+branch-defaults:
+  local:
+    environment: rs-prod
+  master:
+    environment: rs-prod
+  test:
+    environment: rs-prod
+deploy:
+  artifact: release-candidate.zip
+global:
+  application_name: rs
+  default_ec2_keyname: BuildcaveKeyPair
+  default_platform: 64bit Amazon Linux 2016.03 v2.1.0 running Docker 1.11.2
+  default_region: us-west-2
+  profile: null
+  sc: git

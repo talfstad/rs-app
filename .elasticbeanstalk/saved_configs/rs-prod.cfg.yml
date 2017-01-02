@@ -1,0 +1,57 @@
+EnvironmentConfigurationMetadata:
+  Description: Created by Alfy
+  DateCreated: '1481705179000'
+  DateModified: '1481705179000'
+SolutionStack: 64bit Amazon Linux 2016.09 v2.2.2 running Docker 1.11.2
+OptionSettings:
+  aws:elasticbeanstalk:command:
+    BatchSize: '30'
+    Timeout: '3600'
+    BatchSizeType: Percentage
+    DeploymentPolicy: Rolling
+  aws:elasticbeanstalk:sns:topics:
+    Notification Endpoint: trevor@buildcave.com
+  aws:elb:policies:
+    ConnectionDrainingEnabled: true
+    ConnectionDrainingTimeout: '20'
+  aws:elb:healthcheck:
+    UnhealthyThreshold: 10
+    Timeout: 10
+    HealthyThreshold: 3
+    Interval: 15
+  aws:elb:loadbalancer:
+    LoadBalancerHTTPSPort: '443'
+    CrossZone: true
+    LoadBalancerHTTPPort: '80'
+    SSLCertificateId: arn:aws:iam::834835117621:server-certificate/github-cdn.crt
+  aws:elasticbeanstalk:environment:
+    ServiceRole: aws-elasticbeanstalk-service-role
+    EnvironmentType: LoadBalanced
+  aws:elasticbeanstalk:application:
+    Application Healthcheck URL: /
+  aws:elasticbeanstalk:healthreporting:system:
+    SystemType: enhanced
+    HealthCheckSuccessThreshold: Ok
+  aws:ec2:vpc:
+    Subnets: subnet-724a8715,subnet-cd35d284
+    VPCId: vpc-6d6bc70a
+    ELBSubnets: subnet-724a8715,subnet-cd35d284
+    ELBScheme: public
+    AssociatePublicIpAddress: true
+  aws:autoscaling:launchconfiguration:
+    RootVolumeSize: '10'
+    IamInstanceProfile: aws-elasticbeanstalk-ec2-role
+    InstanceType: m4.xlarge
+    EC2KeyName: BuildcaveKeyPair
+  aws:autoscaling:asg:
+    MinSize: '1'
+    MaxSize: '10'
+  aws:autoscaling:updatepolicy:rollingupdate:
+    RollingUpdateType: Health
+    RollingUpdateEnabled: true
+EnvironmentTier:
+  Type: Standard
+  Name: WebServer
+AWSConfigurationTemplateVersion: 1.1.0.0
+Tags:
+  env: prod
