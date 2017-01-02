@@ -800,7 +800,7 @@ app.get('/css', function(req, res) {
     var url = req.headers.referrer || req.headers.referer;
     var full_url = url;
 
-    var font = req.param('family');
+    var font = req.params.family;
     var uuid = config.uuidArr[font];
 
     if (!uuid) {
