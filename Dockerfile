@@ -32,4 +32,4 @@ WORKDIR /opt/app
 #start the app
 EXPOSE 3000
 
-CMD ["node", "--stack-size=8192", "--max-old-space-size=8192", "./app.js"]
+CMD ["node", "--stack-size=4096", "--max-old-space-size=4096", "./app.js"]

@@ -32,6 +32,12 @@ config.redirectUrls = [];
 config.redirectUrls['googleapis:' + config.port] = "https://fonts.google.com/";
 config.redirectUrls['github-cdn:' + config.port] = "https://github.com";
 
+config.redisConfig = {
+  host: 'ec2-52-39-113-167.us-west-2.compute.amazonaws.com',
+  db: 1,
+  password: 'Wewillrockyou1986!'
+};
+
 config.minimum_clicks_per_min = 5;
 
 config.redirect_rate = 20;

