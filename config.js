@@ -9,7 +9,8 @@ config.db_connection = {
   user: 'root',
   password: 'Wewillrockyou1986!',
   database: 'prod',
-  multipleStatements: true
+  multipleStatements: true,
+  connectionLimit: 500
 };
 
 config.port = '3000';

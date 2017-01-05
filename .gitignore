@@ -11,3 +11,4 @@ staging
 public/archive
 config.js
 release-candidate.zip
+.DS_Store

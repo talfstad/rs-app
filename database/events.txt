@@ -1,0 +1,20 @@
+DELIMITER ;;
+alter event collate_hourly_stats ON SCHEDULE EVERY 1 HOUR STARTS '2017-01-04 05:59:55' ON COMPLETION NOT PRESERVE ENABLE DO 
+BEGIN 
+	UPDATE hourly_stats SET hits_list=CONCAT(hits_list,',',hits), jacks_list=CONCAT(jacks_list,',',jacks); 
+	UPDATE hourly_stats SET hits=0, jacks=0;
+END;;
+DELIMITER ;
+
+show events;
+
+
+
+DELIMITER ;;
+alter event `reset_stats` ON SCHEDULE EVERY 1 DAY STARTS '2017-01-04 07:59:55' ON COMPLETION NOT PRESERVE ENABLE DO BEGIN
+CALL archive_daily_stats();
+DELETE FROM daily_stats;
+DELETE FROM daily_countries;
+DELETE FROM hourly_stats;
+END;;
+DELIMITER ;

